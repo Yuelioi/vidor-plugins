@@ -1,0 +1,12 @@
+version: "3"
+
+dotenv: [".env", "{{.ENV}}/.env.", "{{.HOME}}/.env"]
+
+tasks:
+  proto:
+    dir: "{{.USER_WORKING_DIR}}"
+    cmds:
+      - protoc --go_out=./proto ./proto/*.proto
+      - protoc --go-grpc_out=./proto ./proto/*.proto
+    desc: "生成proto产物"
+    aliases: [p]

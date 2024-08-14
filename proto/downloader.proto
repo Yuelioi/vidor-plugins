@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = ".;proto";
+
+// service 可以当做函数
+service SearchService {
+  rpc Init(Empty) returns (Empty);
+  rpc Shutdown(Empty) returns (Empty);
+
+  rpc Show(RequestShow) returns (PlaylistInfo) {}
+  rpc Download(stream PlaylistInfo) returns (stream DownloadResponse) {}
+  rpc Stop(RequestStop) returns (ResponseStop) {}
+}
+
+// ---------------------------- 请求 ----------------------------
+message RequestShow {
+  map<string, string> entries = 1;
+  string url = 2;
+}
+message RequestParse {
+  map<string, string> entries = 1;
+  PlaylistInfo playlist = 2;
+}
+
+message RequestStop { string id = 1; }
+// ---------------------------- 响应 ----------------------------
+
+message ResponseStop {
+  string id = 1;
+  string state = 2;
+}
+
+// ---------------------------- 模型 ----------------------------
+
+message Empty {}
+
+// Home页面搜索展示所需信息
+message PlaylistInfo {
+  string URL = 1;                        // 下载链接
+  string Cover = 2;                      // 封面
+  string WorkDirName = 3;                // 工作路径名
+  string Author = 4;                     // 作者
+  string Description = 5;                // 描述
+  google.protobuf.Timestamp PubDate = 6; // 发布日期
+  repeated StreamInfo StreamInfos = 7;   // 分段合集
+}
+// 流媒体所有信息
+message StreamInfo {
+  string id = 1;              // ★ youtubeID bilibiliBVID
+  string session_id = 2;      // ★ biliCID...
+  string name = 3;            // ★
+  string magic_name = 4;      // ★
+  string url = 5;             // ★
+  repeated Format videos = 6; // ★★
+  repeated Format audios = 7; // ★★
+  repeated Thumbnail thumbnails = 8;
+  repeated CaptionTrack captions = 9;
+  string description = 10;
+  string author = 11;
+  int32 views = 12;
+  google.protobuf.Duration duration = 13;
+  google.protobuf.Timestamp pub_date = 14;
+}
+
+message DownloadResponse {
+  string status = 1;
+  string speed = 2;
+  int64 progress = 3; // 下载进度
+}
+
+message Format {
+  int32 id_tag = 1;           // ★ 标签ID
+  string quality = 2;         // ★ 质量标签
+  bool selected = 3;          // ★ 是否选中当前格式
+  string url = 4;             // 链接
+  string mime_type = 5;       // video/mp4...
+  int64 content_length = 6;   // 内容长度
+  int32 duration_ms = 7;      // 时长
+  repeated string codecs = 8; // 编码类型
+
+  // 图片+视频
+  int32 width = 9;
+  int32 height = 10;
+
+  // 仅视频
+  int32 fps = 11;             // FPS
+  int32 bitrate = 12;         // 码率
+  int32 average_bitrate = 13; // 平均码率
+
+  // 仅音频
+  string audio_sample_rate = 14; // 音频码率
+}
+
+message Thumbnail {
+  string url = 1;
+  string label = 2;
+  uint32 width = 3;
+  uint32 height = 4;
+}
+
+message CaptionTrack {
+  string url = 1;
+  string name = 2;
+  string language_code = 3;
+  string kind = 4;
+  bool is_translatable = 5;
+}
+
+message KeyValue {
+  string key = 1;
+  string value = 2;
+}
+
+message KeyValueMap { map<string, string> entries = 1; }
