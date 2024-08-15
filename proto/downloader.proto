@@ -5,113 +5,94 @@ import "google/protobuf/duration.proto";
 
 option go_package = ".;proto";
 
-// service 可以当做函数
-service SearchService {
-  rpc Init(Empty) returns (Empty);
-  rpc Shutdown(Empty) returns (Empty);
+// Service for handling downloads
+service DownloadService {
+  // ShowInfo sends metadata about the downloadable content.
+  rpc ShowInfo (ShowInfoRequest) returns (ShowInfoResponse) {}
 
-  rpc Show(RequestShow) returns (PlaylistInfo) {}
-  rpc Download(stream PlaylistInfo) returns (stream DownloadResponse) {}
-  rpc Stop(RequestStop) returns (ResponseStop) {}
+  // Download starts the download process and streams download progress.
+  rpc Download (DownloadRequest) returns (stream DownloadProgress) {}
+
+  // StopDownload stops an ongoing download.
+  rpc StopDownload (StopDownloadRequest) returns (StopDownloadResponse) {}
 }
 
-// ---------------------------- 请求 ----------------------------
-message RequestShow {
-  map<string, string> entries = 1;
-  string url = 2;
-}
-message RequestParse {
-  map<string, string> entries = 1;
-  PlaylistInfo playlist = 2;
+// ---------------------------- Requests ----------------------------
+
+// Request to show information about the downloadable content.
+message ShowInfoRequest {
+  string url = 1; // The URL to fetch information from.
 }
 
-message RequestStop { string id = 1; }
-// ---------------------------- 响应 ----------------------------
-
-message ResponseStop {
-  string id = 1;
-  string state = 2;
+// Request to start a download.
+message DownloadRequest {
+  string id = 1; // Unique identifier for the download job.
+  repeated Format formats = 2; // Selected formats to download.
 }
 
-// ---------------------------- 模型 ----------------------------
-
-message Empty {}
-
-// Home页面搜索展示所需信息
-message PlaylistInfo {
-  string URL = 1;                        // 下载链接
-  string Cover = 2;                      // 封面
-  string WorkDirName = 3;                // 工作路径名
-  string Author = 4;                     // 作者
-  string Description = 5;                // 描述
-  google.protobuf.Timestamp PubDate = 6; // 发布日期
-  repeated StreamInfo StreamInfos = 7;   // 分段合集
-}
-// 流媒体所有信息
-message StreamInfo {
-  string id = 1;              // ★ youtubeID bilibiliBVID
-  string session_id = 2;      // ★ biliCID...
-  string name = 3;            // ★
-  string magic_name = 4;      // ★
-  string url = 5;             // ★
-  repeated Format videos = 6; // ★★
-  repeated Format audios = 7; // ★★
-  repeated Thumbnail thumbnails = 8;
-  repeated CaptionTrack captions = 9;
-  string description = 10;
-  string author = 11;
-  int32 views = 12;
-  google.protobuf.Duration duration = 13;
-  google.protobuf.Timestamp pub_date = 14;
+// Request to stop a download.
+message StopDownloadRequest {
+  string id = 1; // Unique identifier for the download job.
 }
 
-message DownloadResponse {
-  string status = 1;
-  string speed = 2;
-  int64 progress = 3; // 下载进度
+// ---------------------------- Responses ----------------------------
+
+// Response containing information about the downloadable content.
+message ShowInfoResponse {
+  string title = 1; // Title of the content.
+  string cover = 2; // Cover image URL.
+  string author = 3; // Author of the content.
+  repeated Format formats = 4; // Available formats for download.
 }
 
+// Progress information during the download process.
+message DownloadProgress {
+  string id = 1; // Unique identifier for the download job.
+  int64 bytesTransferred = 2; // Number of bytes transferred.
+  int64 totalBytes = 3; // Total number of bytes to be transferred.
+  string speed = 4; // Current download speed.
+}
+
+// Response for stopping a download.
+message StopDownloadResponse {
+  string id = 1; // Unique identifier for the download job.
+  string state = 2; // State of the download after stopping.
+}
+
+// ---------------------------- Models ----------------------------
+
+// Represents a format that can be downloaded.
 message Format {
-  int32 id_tag = 1;           // ★ 标签ID
-  string quality = 2;         // ★ 质量标签
-  bool selected = 3;          // ★ 是否选中当前格式
-  string url = 4;             // 链接
-  string mime_type = 5;       // video/mp4...
-  int64 content_length = 6;   // 内容长度
-  int32 duration_ms = 7;      // 时长
-  repeated string codecs = 8; // 编码类型
-
-  // 图片+视频
-  int32 width = 9;
-  int32 height = 10;
-
-  // 仅视频
-  int32 fps = 11;             // FPS
-  int32 bitrate = 12;         // 码率
-  int32 average_bitrate = 13; // 平均码率
-
-  // 仅音频
-  string audio_sample_rate = 14; // 音频码率
+  string id = 1; // Identifier for the format.
+  string mimeType = 2; // MIME type of the format.
+  string qualityLabel = 3; // Quality label (e.g., "720p").
+  string url = 4; // URL for downloading this format.
+  int64 fileSize = 5; // Size of the file in bytes.
+  string audioSampleRate = 6; // Audio sample rate.
+  int32 bitrate = 7; // Bitrate of the video/audio.
+  int32 fps = 8; // Frames per second.
 }
 
+// Represents a thumbnail for the content.
 message Thumbnail {
-  string url = 1;
-  string label = 2;
-  uint32 width = 3;
-  uint32 height = 4;
+  string url = 1; // URL of the thumbnail.
+  uint32 width = 2; // Width of the thumbnail.
+  uint32 height = 3; // Height of the thumbnail.
 }
 
+// Represents a caption track.
 message CaptionTrack {
-  string url = 1;
-  string name = 2;
-  string language_code = 3;
-  string kind = 4;
-  bool is_translatable = 5;
+  string url = 1; // URL of the caption track.
+  string languageCode = 2; // Language code for the caption track.
+  string name = 3; // Name of the caption track.
 }
 
-message KeyValue {
-  string key = 1;
-  string value = 2;
+// Represents metadata about the downloadable content.
+message ContentMetadata {
+  string title = 1; // Title of the content.
+  string cover = 2; // Cover image URL.
+  string author = 3; // Author of the content.
+  repeated Format formats = 4; // Available formats for download.
+  repeated Thumbnail thumbnails = 5; // Thumbnails for the content.
+  repeated CaptionTrack captionTracks = 6; // Caption tracks for the content.
 }
-
-message KeyValueMap { map<string, string> entries = 1; }
