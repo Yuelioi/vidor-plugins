@@ -19,253 +19,192 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SearchService_Init_FullMethodName     = "/SearchService/Init"
-	SearchService_Shutdown_FullMethodName = "/SearchService/Shutdown"
-	SearchService_Show_FullMethodName     = "/SearchService/Show"
-	SearchService_Download_FullMethodName = "/SearchService/Download"
-	SearchService_Stop_FullMethodName     = "/SearchService/Stop"
+	DownloadService_ShowInfo_FullMethodName     = "/DownloadService/ShowInfo"
+	DownloadService_Download_FullMethodName     = "/DownloadService/Download"
+	DownloadService_StopDownload_FullMethodName = "/DownloadService/StopDownload"
 )
 
-// SearchServiceClient is the client API for SearchService service.
+// DownloadServiceClient is the client API for DownloadService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// service 可以当做函数
-type SearchServiceClient interface {
-	Init(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
-	Shutdown(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
-	Show(ctx context.Context, in *RequestShow, opts ...grpc.CallOption) (*PlaylistInfo, error)
-	Download(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PlaylistInfo, DownloadResponse], error)
-	Stop(ctx context.Context, in *RequestStop, opts ...grpc.CallOption) (*ResponseStop, error)
+// Service for handling downloads
+type DownloadServiceClient interface {
+	// ShowInfo sends metadata about the downloadable content.
+	ShowInfo(ctx context.Context, in *ShowInfoRequest, opts ...grpc.CallOption) (*ShowInfoResponse, error)
+	// Download starts the download process and streams download progress.
+	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error)
+	// StopDownload stops an ongoing download.
+	StopDownload(ctx context.Context, in *StopDownloadRequest, opts ...grpc.CallOption) (*StopDownloadResponse, error)
 }
 
-type searchServiceClient struct {
+type downloadServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewSearchServiceClient(cc grpc.ClientConnInterface) SearchServiceClient {
-	return &searchServiceClient{cc}
+func NewDownloadServiceClient(cc grpc.ClientConnInterface) DownloadServiceClient {
+	return &downloadServiceClient{cc}
 }
 
-func (c *searchServiceClient) Init(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
+func (c *downloadServiceClient) ShowInfo(ctx context.Context, in *ShowInfoRequest, opts ...grpc.CallOption) (*ShowInfoResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, SearchService_Init_FullMethodName, in, out, cOpts...)
+	out := new(ShowInfoResponse)
+	err := c.cc.Invoke(ctx, DownloadService_ShowInfo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *searchServiceClient) Shutdown(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
+func (c *downloadServiceClient) Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, SearchService_Shutdown_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &DownloadService_ServiceDesc.Streams[0], DownloadService_Download_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-func (c *searchServiceClient) Show(ctx context.Context, in *RequestShow, opts ...grpc.CallOption) (*PlaylistInfo, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(PlaylistInfo)
-	err := c.cc.Invoke(ctx, SearchService_Show_FullMethodName, in, out, cOpts...)
-	if err != nil {
+	x := &grpc.GenericClientStream[DownloadRequest, DownloadProgress]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-func (c *searchServiceClient) Download(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PlaylistInfo, DownloadResponse], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &SearchService_ServiceDesc.Streams[0], SearchService_Download_FullMethodName, cOpts...)
-	if err != nil {
+	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[PlaylistInfo, DownloadResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SearchService_DownloadClient = grpc.BidiStreamingClient[PlaylistInfo, DownloadResponse]
+type DownloadService_DownloadClient = grpc.ServerStreamingClient[DownloadProgress]
 
-func (c *searchServiceClient) Stop(ctx context.Context, in *RequestStop, opts ...grpc.CallOption) (*ResponseStop, error) {
+func (c *downloadServiceClient) StopDownload(ctx context.Context, in *StopDownloadRequest, opts ...grpc.CallOption) (*StopDownloadResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ResponseStop)
-	err := c.cc.Invoke(ctx, SearchService_Stop_FullMethodName, in, out, cOpts...)
+	out := new(StopDownloadResponse)
+	err := c.cc.Invoke(ctx, DownloadService_StopDownload_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// SearchServiceServer is the server API for SearchService service.
-// All implementations must embed UnimplementedSearchServiceServer
+// DownloadServiceServer is the server API for DownloadService service.
+// All implementations must embed UnimplementedDownloadServiceServer
 // for forward compatibility.
 //
-// service 可以当做函数
-type SearchServiceServer interface {
-	Init(context.Context, *Empty) (*Empty, error)
-	Shutdown(context.Context, *Empty) (*Empty, error)
-	Show(context.Context, *RequestShow) (*PlaylistInfo, error)
-	Download(grpc.BidiStreamingServer[PlaylistInfo, DownloadResponse]) error
-	Stop(context.Context, *RequestStop) (*ResponseStop, error)
-	mustEmbedUnimplementedSearchServiceServer()
+// Service for handling downloads
+type DownloadServiceServer interface {
+	// ShowInfo sends metadata about the downloadable content.
+	ShowInfo(context.Context, *ShowInfoRequest) (*ShowInfoResponse, error)
+	// Download starts the download process and streams download progress.
+	Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error
+	// StopDownload stops an ongoing download.
+	StopDownload(context.Context, *StopDownloadRequest) (*StopDownloadResponse, error)
+	mustEmbedUnimplementedDownloadServiceServer()
 }
 
-// UnimplementedSearchServiceServer must be embedded to have
+// UnimplementedDownloadServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedSearchServiceServer struct{}
+type UnimplementedDownloadServiceServer struct{}
 
-func (UnimplementedSearchServiceServer) Init(context.Context, *Empty) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Init not implemented")
+func (UnimplementedDownloadServiceServer) ShowInfo(context.Context, *ShowInfoRequest) (*ShowInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ShowInfo not implemented")
 }
-func (UnimplementedSearchServiceServer) Shutdown(context.Context, *Empty) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
-}
-func (UnimplementedSearchServiceServer) Show(context.Context, *RequestShow) (*PlaylistInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Show not implemented")
-}
-func (UnimplementedSearchServiceServer) Download(grpc.BidiStreamingServer[PlaylistInfo, DownloadResponse]) error {
+func (UnimplementedDownloadServiceServer) Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error {
 	return status.Errorf(codes.Unimplemented, "method Download not implemented")
 }
-func (UnimplementedSearchServiceServer) Stop(context.Context, *RequestStop) (*ResponseStop, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
+func (UnimplementedDownloadServiceServer) StopDownload(context.Context, *StopDownloadRequest) (*StopDownloadResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopDownload not implemented")
 }
-func (UnimplementedSearchServiceServer) mustEmbedUnimplementedSearchServiceServer() {}
-func (UnimplementedSearchServiceServer) testEmbeddedByValue()                       {}
+func (UnimplementedDownloadServiceServer) mustEmbedUnimplementedDownloadServiceServer() {}
+func (UnimplementedDownloadServiceServer) testEmbeddedByValue()                         {}
 
-// UnsafeSearchServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to SearchServiceServer will
+// UnsafeDownloadServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DownloadServiceServer will
 // result in compilation errors.
-type UnsafeSearchServiceServer interface {
-	mustEmbedUnimplementedSearchServiceServer()
+type UnsafeDownloadServiceServer interface {
+	mustEmbedUnimplementedDownloadServiceServer()
 }
 
-func RegisterSearchServiceServer(s grpc.ServiceRegistrar, srv SearchServiceServer) {
-	// If the following call pancis, it indicates UnimplementedSearchServiceServer was
+func RegisterDownloadServiceServer(s grpc.ServiceRegistrar, srv DownloadServiceServer) {
+	// If the following call pancis, it indicates UnimplementedDownloadServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&SearchService_ServiceDesc, srv)
+	s.RegisterService(&DownloadService_ServiceDesc, srv)
 }
 
-func _SearchService_Init_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+func _DownloadService_ShowInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShowInfoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SearchServiceServer).Init(ctx, in)
+		return srv.(DownloadServiceServer).ShowInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SearchService_Init_FullMethodName,
+		FullMethod: DownloadService_ShowInfo_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SearchServiceServer).Init(ctx, req.(*Empty))
+		return srv.(DownloadServiceServer).ShowInfo(ctx, req.(*ShowInfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SearchService_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
+func _DownloadService_Download_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DownloadRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(SearchServiceServer).Shutdown(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SearchService_Shutdown_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SearchServiceServer).Shutdown(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SearchService_Show_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RequestShow)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SearchServiceServer).Show(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SearchService_Show_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SearchServiceServer).Show(ctx, req.(*RequestShow))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _SearchService_Download_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SearchServiceServer).Download(&grpc.GenericServerStream[PlaylistInfo, DownloadResponse]{ServerStream: stream})
+	return srv.(DownloadServiceServer).Download(m, &grpc.GenericServerStream[DownloadRequest, DownloadProgress]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type SearchService_DownloadServer = grpc.BidiStreamingServer[PlaylistInfo, DownloadResponse]
+type DownloadService_DownloadServer = grpc.ServerStreamingServer[DownloadProgress]
 
-func _SearchService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RequestStop)
+func _DownloadService_StopDownload_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopDownloadRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SearchServiceServer).Stop(ctx, in)
+		return srv.(DownloadServiceServer).StopDownload(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SearchService_Stop_FullMethodName,
+		FullMethod: DownloadService_StopDownload_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SearchServiceServer).Stop(ctx, req.(*RequestStop))
+		return srv.(DownloadServiceServer).StopDownload(ctx, req.(*StopDownloadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// SearchService_ServiceDesc is the grpc.ServiceDesc for SearchService service.
+// DownloadService_ServiceDesc is the grpc.ServiceDesc for DownloadService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var SearchService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "SearchService",
-	HandlerType: (*SearchServiceServer)(nil),
+var DownloadService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "DownloadService",
+	HandlerType: (*DownloadServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Init",
-			Handler:    _SearchService_Init_Handler,
+			MethodName: "ShowInfo",
+			Handler:    _DownloadService_ShowInfo_Handler,
 		},
 		{
-			MethodName: "Shutdown",
-			Handler:    _SearchService_Shutdown_Handler,
-		},
-		{
-			MethodName: "Show",
-			Handler:    _SearchService_Show_Handler,
-		},
-		{
-			MethodName: "Stop",
-			Handler:    _SearchService_Stop_Handler,
+			MethodName: "StopDownload",
+			Handler:    _DownloadService_StopDownload_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Download",
-			Handler:       _SearchService_Download_Handler,
+			Handler:       _DownloadService_Download_Handler,
 			ServerStreams: true,
-			ClientStreams: true,
 		},
 	},
 	Metadata: "downloader.proto",

@@ -1,13 +1,20 @@
 module server
 
-go 1.20.1
+go 1.21
 
-require google.golang.org/grpc v1.65.0
+toolchain go1.22.6
 
 require (
-	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	github.com/Yuelioi/bilibili v0.0.3
+	github.com/joho/godotenv v1.5.1
+	google.golang.org/grpc v1.65.0
+)
+
+require (
+	github.com/go-resty/resty/v2 v2.14.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 )

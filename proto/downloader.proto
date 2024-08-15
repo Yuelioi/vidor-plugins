@@ -1,20 +1,20 @@
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
+// import "google/protobuf/timestamp.proto";
+// import "google/protobuf/duration.proto";
 
 option go_package = ".;proto";
 
 // Service for handling downloads
 service DownloadService {
   // ShowInfo sends metadata about the downloadable content.
-  rpc ShowInfo (ShowInfoRequest) returns (ShowInfoResponse) {}
+  rpc ShowInfo(ShowInfoRequest) returns (ShowInfoResponse) {}
 
   // Download starts the download process and streams download progress.
-  rpc Download (DownloadRequest) returns (stream DownloadProgress) {}
+  rpc Download(DownloadRequest) returns (stream DownloadProgress) {}
 
   // StopDownload stops an ongoing download.
-  rpc StopDownload (StopDownloadRequest) returns (StopDownloadResponse) {}
+  rpc StopDownload(StopDownloadRequest) returns (StopDownloadResponse) {}
 }
 
 // ---------------------------- Requests ----------------------------
@@ -26,7 +26,7 @@ message ShowInfoRequest {
 
 // Request to start a download.
 message DownloadRequest {
-  string id = 1; // Unique identifier for the download job.
+  string id = 1;               // Unique identifier for the download job.
   repeated Format formats = 2; // Selected formats to download.
 }
 
@@ -39,23 +39,23 @@ message StopDownloadRequest {
 
 // Response containing information about the downloadable content.
 message ShowInfoResponse {
-  string title = 1; // Title of the content.
-  string cover = 2; // Cover image URL.
-  string author = 3; // Author of the content.
+  string title = 1;            // Title of the content.
+  string cover = 2;            // Cover image URL.
+  string author = 3;           // Author of the content.
   repeated Format formats = 4; // Available formats for download.
 }
 
 // Progress information during the download process.
 message DownloadProgress {
-  string id = 1; // Unique identifier for the download job.
-  int64 bytesTransferred = 2; // Number of bytes transferred.
-  int64 totalBytes = 3; // Total number of bytes to be transferred.
-  string speed = 4; // Current download speed.
+  string id = 1;               // Unique identifier for the download job.
+  int64 bytes_transferred = 2; // Number of bytes transferred.
+  int64 total_bytes = 3;       // Total number of bytes to be transferred.
+  string speed = 4;            // Current download speed.
 }
 
 // Response for stopping a download.
 message StopDownloadResponse {
-  string id = 1; // Unique identifier for the download job.
+  string id = 1;    // Unique identifier for the download job.
   string state = 2; // State of the download after stopping.
 }
 
@@ -63,36 +63,36 @@ message StopDownloadResponse {
 
 // Represents a format that can be downloaded.
 message Format {
-  string id = 1; // Identifier for the format.
-  string mimeType = 2; // MIME type of the format.
-  string qualityLabel = 3; // Quality label (e.g., "720p").
-  string url = 4; // URL for downloading this format.
-  int64 fileSize = 5; // Size of the file in bytes.
-  string audioSampleRate = 6; // Audio sample rate.
-  int32 bitrate = 7; // Bitrate of the video/audio.
-  int32 fps = 8; // Frames per second.
+  string id = 1;            // Identifier for the format.
+  string mime_type = 2;     // MIME type of the format.
+  string quality_label = 3; // Quality label (e.g., "720p").
+  string url = 4;           // URL for downloading this format.
+  int64 file_size = 5;      // Size of the file in bytes.
+  string audio_rate = 6;    // Audio sample rate.
+  int32 bitrate = 7;        // Bitrate of the video/audio.
+  int32 fps = 8;            // Frames per second.
 }
 
 // Represents a thumbnail for the content.
 message Thumbnail {
-  string url = 1; // URL of the thumbnail.
-  uint32 width = 2; // Width of the thumbnail.
+  string url = 1;    // URL of the thumbnail.
+  uint32 width = 2;  // Width of the thumbnail.
   uint32 height = 3; // Height of the thumbnail.
 }
 
 // Represents a caption track.
 message CaptionTrack {
-  string url = 1; // URL of the caption track.
-  string languageCode = 2; // Language code for the caption track.
-  string name = 3; // Name of the caption track.
+  string url = 1;      // URL of the caption track.
+  string language = 2; // Language code for the caption track.
+  string name = 3;     // Name of the caption track.
 }
 
 // Represents metadata about the downloadable content.
 message ContentMetadata {
-  string title = 1; // Title of the content.
-  string cover = 2; // Cover image URL.
-  string author = 3; // Author of the content.
-  repeated Format formats = 4; // Available formats for download.
-  repeated Thumbnail thumbnails = 5; // Thumbnails for the content.
-  repeated CaptionTrack captionTracks = 6; // Caption tracks for the content.
+  string title = 1;                         // Title of the content.
+  string cover = 2;                         // Cover image URL.
+  string author = 3;                        // Author of the content.
+  repeated Format formats = 4;              // Available formats for download.
+  repeated Thumbnail thumbnails = 5;        // Thumbnails for the content.
+  repeated CaptionTrack caption_tracks = 6; // Caption tracks for the content.
 }
