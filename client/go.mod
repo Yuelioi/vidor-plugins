@@ -1,8 +1,13 @@
 module client
 
-go 1.20.1
+go 1.21
 
-require google.golang.org/grpc v1.65.0
+toolchain go1.22.6
+
+require (
+	github.com/joho/godotenv v1.5.1
+	google.golang.org/grpc v1.65.0
+)
 
 require (
 	golang.org/x/net v0.25.0 // indirect

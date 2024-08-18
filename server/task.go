@@ -11,8 +11,9 @@ const (
 )
 
 type Task struct {
-	Id    string
-	State int
+	Id       string
+	State    int
+	StopChan chan struct{}
 }
 
 func NewTaskQueue() *TaskQueue {

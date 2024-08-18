@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -19,7 +20,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DownloadService_ShowInfo_FullMethodName     = "/DownloadService/ShowInfo"
+	DownloadService_Init_FullMethodName         = "/DownloadService/Init"
+	DownloadService_Shutdown_FullMethodName     = "/DownloadService/Shutdown"
+	DownloadService_Show_FullMethodName         = "/DownloadService/Show"
+	DownloadService_Parse_FullMethodName        = "/DownloadService/Parse"
 	DownloadService_Download_FullMethodName     = "/DownloadService/Download"
 	DownloadService_StopDownload_FullMethodName = "/DownloadService/StopDownload"
 )
@@ -30,8 +34,11 @@ const (
 //
 // Service for handling downloads
 type DownloadServiceClient interface {
+	Init(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// ShowInfo sends metadata about the downloadable content.
-	ShowInfo(ctx context.Context, in *ShowInfoRequest, opts ...grpc.CallOption) (*ShowInfoResponse, error)
+	Show(ctx context.Context, in *ShowRequest, opts ...grpc.CallOption) (*ShowResponse, error)
+	Parse(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error)
 	// Download starts the download process and streams download progress.
 	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error)
 	// StopDownload stops an ongoing download.
@@ -46,10 +53,40 @@ func NewDownloadServiceClient(cc grpc.ClientConnInterface) DownloadServiceClient
 	return &downloadServiceClient{cc}
 }
 
-func (c *downloadServiceClient) ShowInfo(ctx context.Context, in *ShowInfoRequest, opts ...grpc.CallOption) (*ShowInfoResponse, error) {
+func (c *downloadServiceClient) Init(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ShowInfoResponse)
-	err := c.cc.Invoke(ctx, DownloadService_ShowInfo_FullMethodName, in, out, cOpts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, DownloadService_Init_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *downloadServiceClient) Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, DownloadService_Shutdown_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *downloadServiceClient) Show(ctx context.Context, in *ShowRequest, opts ...grpc.CallOption) (*ShowResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ShowResponse)
+	err := c.cc.Invoke(ctx, DownloadService_Show_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *downloadServiceClient) Parse(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ParseResponse)
+	err := c.cc.Invoke(ctx, DownloadService_Parse_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +128,11 @@ func (c *downloadServiceClient) StopDownload(ctx context.Context, in *StopDownlo
 //
 // Service for handling downloads
 type DownloadServiceServer interface {
+	Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// ShowInfo sends metadata about the downloadable content.
-	ShowInfo(context.Context, *ShowInfoRequest) (*ShowInfoResponse, error)
+	Show(context.Context, *ShowRequest) (*ShowResponse, error)
+	Parse(context.Context, *ParseRequest) (*ParseResponse, error)
 	// Download starts the download process and streams download progress.
 	Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error
 	// StopDownload stops an ongoing download.
@@ -107,8 +147,17 @@ type DownloadServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedDownloadServiceServer struct{}
 
-func (UnimplementedDownloadServiceServer) ShowInfo(context.Context, *ShowInfoRequest) (*ShowInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ShowInfo not implemented")
+func (UnimplementedDownloadServiceServer) Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Init not implemented")
+}
+func (UnimplementedDownloadServiceServer) Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
+}
+func (UnimplementedDownloadServiceServer) Show(context.Context, *ShowRequest) (*ShowResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Show not implemented")
+}
+func (UnimplementedDownloadServiceServer) Parse(context.Context, *ParseRequest) (*ParseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Parse not implemented")
 }
 func (UnimplementedDownloadServiceServer) Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error {
 	return status.Errorf(codes.Unimplemented, "method Download not implemented")
@@ -137,20 +186,74 @@ func RegisterDownloadServiceServer(s grpc.ServiceRegistrar, srv DownloadServiceS
 	s.RegisterService(&DownloadService_ServiceDesc, srv)
 }
 
-func _DownloadService_ShowInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ShowInfoRequest)
+func _DownloadService_Init_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DownloadServiceServer).ShowInfo(ctx, in)
+		return srv.(DownloadServiceServer).Init(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DownloadService_ShowInfo_FullMethodName,
+		FullMethod: DownloadService_Init_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DownloadServiceServer).ShowInfo(ctx, req.(*ShowInfoRequest))
+		return srv.(DownloadServiceServer).Init(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DownloadService_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DownloadServiceServer).Shutdown(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DownloadService_Shutdown_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DownloadServiceServer).Shutdown(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DownloadService_Show_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShowRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DownloadServiceServer).Show(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DownloadService_Show_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DownloadServiceServer).Show(ctx, req.(*ShowRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DownloadService_Parse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ParseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DownloadServiceServer).Parse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DownloadService_Parse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DownloadServiceServer).Parse(ctx, req.(*ParseRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -192,8 +295,20 @@ var DownloadService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DownloadServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ShowInfo",
-			Handler:    _DownloadService_ShowInfo_Handler,
+			MethodName: "Init",
+			Handler:    _DownloadService_Init_Handler,
+		},
+		{
+			MethodName: "Shutdown",
+			Handler:    _DownloadService_Shutdown_Handler,
+		},
+		{
+			MethodName: "Show",
+			Handler:    _DownloadService_Show_Handler,
+		},
+		{
+			MethodName: "Parse",
+			Handler:    _DownloadService_Parse_Handler,
 		},
 		{
 			MethodName: "StopDownload",

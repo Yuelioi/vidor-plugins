@@ -5,63 +5,50 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
-	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
 	pb "proto"
 
-	"github.com/Yuelioi/bilibili/pkg/bpi"
-	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+	empty "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type server struct {
 	pb.UnimplementedDownloadServiceServer
-	service   *bpi.BpiService
+	client    *Client
 	taskQueue *TaskQueue
 	once      sync.Once
 }
 
-func LoadEnv() {
-
-	_, filename, _, _ := runtime.Caller(0)
-	env := filepath.Join(filepath.Dir(filename), "..", ".env")
-
-	// Attempt to load the .env file
-	err := godotenv.Load(env)
-	if err != nil {
-		fmt.Printf("Error loading .env file: %v\n", err)
-	}
-}
-
-func (s *server) ShowInfo(ctx context.Context, sr *pb.ShowInfoRequest) (*pb.ShowInfoResponse, error) {
+// 初始化
+func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
 	s.once.Do(func() {
 		// 创建 client
-		s.service = bpi.New()
+		s.client = NewClient()
 
 		// 创建任务队列
 		s.taskQueue = NewTaskQueue()
+
+		// 初始化插件配置
+		s.LoadConfig(ctx)
 	})
+	return &empty.Empty{}, nil
+}
 
-	// 添加任务队列
-	s.taskQueue.AddTask(NewTask(sr.Url))
+func (s *server) Show(ctx context.Context, sr *pb.ShowRequest) (*pb.ShowResponse, error) {
+	return s.client.Info(sr.Url)
+}
 
-	// 注册 cookie 可以走metadata?
-	LoadEnv()
-	value := os.Getenv("SESSDATA")
-	s.service.Client.SESSDATA = value
-	video, _ := s.service.Video().Detail(0, "BV1nr421M747")
-	fmt.Printf("video.Data: %v\n", video.Data)
-	return &pb.ShowInfoResponse{}, nil
+func (s *server) Parse(ctx context.Context, pr *pb.ParseRequest) (*pb.ParseResponse, error) {
+	return s.client.Parse(pr)
 }
 
 func (s *server) Download(dr *pb.DownloadRequest, stream pb.DownloadService_DownloadServer) error {
-	fmt.Printf("Starting download for URL: %v\n", dr.Id)
+	// 添加任务队列
+	s.taskQueue.AddTask(NewTask(dr.Id))
 
-	// 模拟下载总大小（单位：MB）
+	// 模拟下载总大小（单位：MB）Download
 	totalSize := 100
 	chunkSize := 10
 
@@ -104,17 +91,33 @@ func (s *server) StopDownload(context.Context, *pb.StopDownloadRequest) (*pb.Sto
 	return nil, nil
 }
 
+func getAvailablePort() (int, error) {
+	// 监听 "localhost:0" 让系统分配一个可用端口
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return 0, fmt.Errorf("failed to find an available port: %v", err)
+	}
+	defer listener.Close()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	return port, nil
+}
+
 func main() {
 
 	lis, err := net.Listen("tcp", "localhost:9001")
 	if err != nil {
-		log.Fatalf("Failed to listen on Unix socket: %v", err)
+		log.Fatalf("Failed to listen on TCP: %v", err)
 	}
+
+	actualPort := lis.Addr().(*net.TCPAddr).Port
+
+	fmt.Printf("Port: %d\n", actualPort)
 
 	s := grpc.NewServer()
 	pb.RegisterDownloadServiceServer(s, &server{})
 
-	log.Printf("Server1 listening on %d", 9001)
+	log.Printf("Server1 listening on %d", actualPort)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}

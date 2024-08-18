@@ -2,13 +2,20 @@ syntax = "proto3";
 
 // import "google/protobuf/timestamp.proto";
 // import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = ".;proto";
 
 // Service for handling downloads
 service DownloadService {
+  rpc Init(google.protobuf.Empty)returns (google.protobuf.Empty) {}
+  rpc Shutdown(google.protobuf.Empty)returns (google.protobuf.Empty) {}
+
   // ShowInfo sends metadata about the downloadable content.
-  rpc ShowInfo(ShowInfoRequest) returns (ShowInfoResponse) {}
+  rpc Show(ShowRequest) returns (ShowResponse) {}
+
+
+  rpc Parse(ParseRequest) returns (ParseResponse) {}
 
   // Download starts the download process and streams download progress.
   rpc Download(DownloadRequest) returns (stream DownloadProgress) {}
@@ -19,9 +26,15 @@ service DownloadService {
 
 // ---------------------------- Requests ----------------------------
 
+
 // Request to show information about the downloadable content.
-message ShowInfoRequest {
+message ShowRequest {
   string url = 1; // The URL to fetch information from.
+}
+
+message ParseRequest{
+  string id = 1;               // Unique identifier for the download job.
+  repeated StreamInfo stream_infos = 4; // Available formats for download.
 }
 
 // Request to start a download.
@@ -32,17 +45,18 @@ message DownloadRequest {
 
 // Request to stop a download.
 message StopDownloadRequest {
-  string id = 1; // Unique identifier for the download job.
+  StreamInfo stream_info = 1;
 }
 
 // ---------------------------- Responses ----------------------------
 
+
 // Response containing information about the downloadable content.
-message ShowInfoResponse {
+message ShowResponse {
   string title = 1;            // Title of the content.
   string cover = 2;            // Cover image URL.
   string author = 3;           // Author of the content.
-  repeated Format formats = 4; // Available formats for download.
+  repeated StreamInfo stream_infos = 4; // Available formats for download.
 }
 
 // Progress information during the download process.
@@ -53,6 +67,11 @@ message DownloadProgress {
   string speed = 4;            // Current download speed.
 }
 
+message ParseResponse{
+  string id = 1;               // Unique identifier for the download job.
+  repeated StreamInfo stream_infos = 4; // Available formats for download.
+}
+
 // Response for stopping a download.
 message StopDownloadResponse {
   string id = 1;    // Unique identifier for the download job.
@@ -61,16 +80,25 @@ message StopDownloadResponse {
 
 // ---------------------------- Models ----------------------------
 
+message StreamInfo{
+  string id = 1;
+  string url =2;
+  string session_id = 3;
+  string title = 4; 
+  repeated Stream streams = 5;
+}
+message Stream{
+  string mime_type = 2;
+  repeated Format formats = 3;
+}
+
 // Represents a format that can be downloaded.
 message Format {
-  string id = 1;            // Identifier for the format.
+  int64 id = 1;            // Identifier for the format.
   string mime_type = 2;     // MIME type of the format.
-  string quality_label = 3; // Quality label (e.g., "720p").
-  string url = 4;           // URL for downloading this format.
-  int64 file_size = 5;      // Size of the file in bytes.
-  string audio_rate = 6;    // Audio sample rate.
-  int32 bitrate = 7;        // Bitrate of the video/audio.
-  int32 fps = 8;            // Frames per second.
+  string label = 3; // Media label (e.g., "720p").
+  string code = 4;  //  (e.g., "mp4/mov","flac/mp3","png/jpg").
+  string url = 5;           // URL for downloading this format.
 }
 
 // Represents a thumbnail for the content.

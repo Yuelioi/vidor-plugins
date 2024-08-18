@@ -6,7 +6,7 @@ toolchain go1.22.6
 
 require (
 	github.com/Yuelioi/bilibili v0.0.3
-	github.com/joho/godotenv v1.5.1
+	github.com/google/uuid v1.6.0
 	google.golang.org/grpc v1.65.0
 )
 
