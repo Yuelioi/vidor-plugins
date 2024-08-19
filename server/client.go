@@ -11,8 +11,10 @@ import (
 	"os"
 	pb "proto"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Yuelioi/bilibili/pkg/bpi"
 	bv "github.com/Yuelioi/bilibili/pkg/endpoints/video"
@@ -20,7 +22,8 @@ import (
 )
 
 type Client struct {
-	BpiService *bpi.BpiService
+	BpiService   *bpi.BpiService
+	stopChannels sync.Map
 }
 
 func NewClient() *Client {
@@ -89,7 +92,6 @@ func (c *Client) Info(url string) (*pb.ShowResponse, error) {
 }
 
 func (c *Client) Parse(pr *pb.ParseRequest) (*pb.ParseResponse, error) {
-
 	resp := &pb.ParseResponse{}
 
 	for _, info := range pr.StreamInfos {
@@ -139,39 +141,63 @@ func (c *Client) Parse(pr *pb.ParseRequest) (*pb.ParseResponse, error) {
 	return resp, nil
 }
 
-func (c *Client) Download(dr *pb.DownloadRequest, stream pb.DownloadService_DownloadServer) error {
+func (c *Client) Download(streamInfo *pb.StreamInfo, stream pb.DownloadService_DownloadServer) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	stopChan := make(chan struct{})
+	c.stopChannels.Store(streamInfo.Id, stopChan)
+
+	start := time.Now()
 
 	req := c.BpiService.Client.HTTPClient.R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Referer", "https://www.bilibili.com/").
+		SetHeader("Range", "bytes=0-0"). // 只请求第一个字节
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
 			Value: c.BpiService.Client.SESSDATA,
 		})
 
-	url := dr.StreamInfos[0].Streams[0].Formats[0].Url
-	resp, err := req.Get(url)
+	url1 := streamInfo.Streams[0].Formats[0].Url
+	// url2 := streamInfo.Streams[0].Formats[0].Url
+	resp, err := req.Get(url1)
+
 	if err != nil {
-		log.Println("请求失败:", err)
 		return err
 	}
-	defer resp.RawBody().Close()
+	// 从响应头中获取 Content-Range 的值
+	contentRange := resp.Header().Get("Content-Range")
+	fmt.Printf("contentRange: %v\n", contentRange)
 
-	contentLength := resp.Size()
+	parts := strings.Split(contentRange, "/")
+	if len(parts) != 2 {
+		log.Println("Content-Range 头格式不正确:", contentRange)
+		return fmt.Errorf("无法解析视频大小")
+	}
 
-	fmt.Printf("contentLength: %v\n", contentLength)
-	if err := c.download(ctx, url, contentLength, "tempVideo.mp4"); err != nil {
+	contentLength, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		log.Println("解析 Content-Range 失败:", err)
+		return err
+	}
+
+	if err := c.download(ctx, stream, streamInfo.Id, url1, contentLength, "temp.mp4"); err != nil {
 		log.Printf("下载失败：%v", err)
 		return err
 	}
 
+	log.Printf("下载完成：%v", time.Since(start))
+
 	return nil
 }
 
+func (c *Client) StopDownload(ctx context.Context, sr *pb.StopDownloadRequest) (*pb.StopDownloadResponse, error) {
+	return nil, nil
+}
+
 const (
-	bufferSize = 1024 * 1024 * 5 // 5MB buffer size
+	bufferSize = 1024 * 256      // 500kb buffer size
 	chunkSize  = 5 * 1024 * 1024 // 5MB chunk size
 )
 
@@ -183,7 +209,7 @@ func autoSetBatchSize(contentLength int64) int64 {
 	batchSize = int64(math.Max(float64(minBatchSize), float64(math.Min(float64(batchSize), float64(maxBatchSize)))))
 	return batchSize
 }
-func (c *Client) download(ctx context.Context, url string, contentLength int64, tempPath string) error {
+func (c *Client) download(ctx context.Context, stream pb.DownloadService_DownloadServer, id string, url string, contentLength int64, tempPath string) error {
 	batchSize := autoSetBatchSize(contentLength)
 	chunkSize := contentLength / batchSize
 	if chunkSize*batchSize < contentLength {
@@ -198,10 +224,44 @@ func (c *Client) download(ctx context.Context, url string, contentLength int64, 
 	defer out.Close()
 
 	var wg sync.WaitGroup
-	errChan := make(chan error, batchSize)
 	var totalBytesRead atomic.Int64
 
-	fmt.Printf("batchSize: %v\n", batchSize)
+	var finished bool
+
+	timeInterval := 333
+
+	ticker := time.NewTicker(time.Duration(timeInterval) * time.Millisecond)
+
+	go func() {
+		var previousBytesRead int64
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if !finished {
+				currentBytesRead := totalBytesRead.Load()
+				bytesRead := currentBytesRead - previousBytesRead
+				previousBytesRead = currentBytesRead
+
+				speed := float64(bytesRead) // Speed in B/s
+
+				progressMsg := &pb.DownloadProgress{
+					Id:         id,
+					TotalBytes: 100,
+					Speed:      fmt.Sprintf("%.2f MB/s", speed*1000/(1024*1024*float64(timeInterval))),
+				}
+
+				if err := stream.Send(progressMsg); err != nil {
+					return
+				}
+
+			} else {
+				ticker.Stop()
+				return
+			}
+
+		}
+
+	}()
 
 	for i := int64(0); i < batchSize; i++ {
 		start := i * chunkSize
@@ -213,33 +273,32 @@ func (c *Client) download(ctx context.Context, url string, contentLength int64, 
 		wg.Add(1)
 		go func(chunkStart, chunkEnd int64) {
 			defer wg.Done()
-			if err := c.downloadChunk(ctx, url, chunkStart, chunkEnd, out, &totalBytesRead); err != nil {
-				errChan <- err
-			}
+			c.downloadChunk(ctx, id, url, chunkStart, chunkEnd, out, &totalBytesRead)
 		}(start, end)
 	}
-
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	if err := <-errChan; err != nil {
-		return err
-	}
+	wg.Wait()
+	finished = true
 
 	return nil
 }
-func (c *Client) downloadChunk(ctx context.Context, url string, start, end int64, out *os.File, totalBytesRead *atomic.Int64) error {
+
+func (c *Client) downloadChunk(ctx context.Context, id string, url string, chunkStart, chunkEnd int64, out *os.File, totalBytesRead *atomic.Int64) error {
+	c.BpiService.Client.HTTPClient.SetTimeout(0)
+
+	stopChan, ok := c.stopChannels.Load(id)
+
+	if !ok {
+		return nil
+	}
 
 	req := c.BpiService.Client.HTTPClient.R().
 		SetHeader("Accept-Ranges", "bytes").
-		SetHeader("Range", fmt.Sprintf("bytes=%d-%d", start, end)).
+		SetHeader("Range", fmt.Sprintf("bytes=%d-%d", chunkStart, chunkEnd)).
 		SetHeader("Referer", "https://www.bilibili.com/").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
 			Value: c.BpiService.Client.SESSDATA,
-		})
+		}).SetDoNotParseResponse(true)
 
 	resp, err := req.Get(url)
 	if err != nil {
@@ -252,18 +311,22 @@ func (c *Client) downloadChunk(ctx context.Context, url string, start, end int64
 
 	for {
 		select {
+		case <-stopChan.(chan struct{}):
+			fmt.Println("Context canceled")
+			return fmt.Errorf("download stopped for chunk %d-%d", chunkStart, chunkEnd)
+
 		case <-ctx.Done():
 			fmt.Println("Context canceled")
 			return ctx.Err()
 		default:
-			n, err := resp.RawBody().Read(buffer)
+			n, err := io.ReadFull(resp.RawBody(), buffer)
 			if n > 0 {
-				_, writeErr := out.WriteAt(buffer[:n], start)
+				_, writeErr := out.WriteAt(buffer[:n], chunkStart)
 				if writeErr != nil {
 					log.Printf("写入文件失败：%v", writeErr)
 					return writeErr
 				}
-				start += int64(n)
+				chunkStart += int64(n)
 				totalBytesRead.Add(int64(n))
 			}
 
@@ -271,7 +334,7 @@ func (c *Client) downloadChunk(ctx context.Context, url string, start, end int64
 				if err == io.EOF {
 					return nil // 读取完毕，正常退出
 				}
-				log.Printf("读取响应体失败：%v", err)
+
 				return err // 读取过程中出错，返回错误
 			}
 		}

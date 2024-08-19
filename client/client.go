@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	pb "proto"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -31,7 +33,22 @@ func NewClient() (*Client, error) {
 
 	return c, nil
 }
+
+func getAvailablePort() (int, error) {
+	// 监听 "localhost:0" 让系统分配一个可用端口
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return 0, fmt.Errorf("failed to find an available port: %v", err)
+	}
+	defer listener.Close()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	return port, nil
+}
 func main() {
+
+	// availablePort, err := getAvailablePort()
+	// exec.Command("server.exe", "--port", strconv.Itoa(availablePort))
 
 	c, err := NewClient()
 
@@ -63,6 +80,16 @@ func main() {
 	}
 
 	stream, err := c.Service.Download(context.Background(), reqDown)
+
+	go func() {
+		time.Sleep(time.Second * 10)
+		_, err := c.Service.StopDownload(ctx, &pb.StopDownloadRequest{
+			Id: resp.StreamInfos[0].Id,
+		})
+
+		fmt.Printf("err: %v\n", err)
+
+	}()
 
 	// 从流中接收下载进度
 	for {

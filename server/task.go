@@ -22,24 +22,25 @@ func NewTaskQueue() *TaskQueue {
 
 func NewTask(id string) *Task {
 	return &Task{
-		Id:    id,
-		State: Queue,
+		Id:       id,
+		State:    Queue,
+		StopChan: make(chan struct{}),
 	}
 }
 
 type TaskQueue struct {
-	Queue []*Task
+	tasks []*Task
 	mu    sync.Mutex
 }
 
-func (tq *TaskQueue) AddTask(task *Task) {
+func (tq *TaskQueue) AddTask(id string) {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
-	tq.Queue = append(tq.Queue, task)
+	tq.tasks = append(tq.tasks, NewTask(id))
 }
 
 func (tq *TaskQueue) SearchTask(id string) *Task {
-	for _, tk := range tq.Queue {
+	for _, tk := range tq.tasks {
 		if tk.Id == id {
 			return tk
 		}
@@ -50,11 +51,11 @@ func (tq *TaskQueue) SearchTask(id string) *Task {
 func (tq *TaskQueue) RemoveTask(id string) {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
-	newQueue := tq.Queue[:0]
-	for _, tk := range tq.Queue {
+	newTasks := tq.tasks[:0]
+	for _, tk := range tq.tasks {
 		if tk.Id != id {
-			newQueue = append(newQueue, tk)
+			newTasks = append(newTasks, tk)
 		}
 	}
-	tq.Queue = newQueue
+	tq.tasks = newTasks
 }
