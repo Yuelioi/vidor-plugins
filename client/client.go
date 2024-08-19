@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	pb "proto"
 
 	"google.golang.org/grpc"
@@ -14,16 +12,16 @@ type Client struct {
 	Service pb.DownloadServiceClient
 }
 
-func NewClient() *Client {
+func NewClient() (*Client, error) {
 
 	c := &Client{}
 
 	conn, err := grpc.NewClient("localhost:9001", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("Failed to connect to Server1: %v", err)
+		return nil, err
 	}
 
 	c.Service = pb.NewDownloadServiceClient(conn)
-	defer conn.Close()
-	return c
+
+	return c, nil
 }
