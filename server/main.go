@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"time"
 
 	pb "proto"
 
@@ -58,46 +57,47 @@ func (s *server) Parse(ctx context.Context, pr *pb.ParseRequest) (*pb.ParseRespo
 }
 
 func (s *server) Download(dr *pb.DownloadRequest, stream pb.DownloadService_DownloadServer) error {
-	// 添加任务队列
-	s.taskQueue.AddTask(NewTask(dr.Id))
+	return s.client.Download(dr, stream)
 
-	// 模拟下载总大小（单位：MB）Download
-	totalSize := 100
-	chunkSize := 10
+	// // 添加任务队列
+	// s.taskQueue.AddTask(NewTask(dr.Id))
 
-	for i := 0; i <= totalSize; i += chunkSize {
-		// 模拟每次下载一个块
-		time.Sleep(1 * time.Second)
+	// // 模拟下载总大小（单位：MB）Download
+	// totalSize := 100
+	// chunkSize := 10
 
-		// 计算进度百分比
-		progress := float32(i) / float32(totalSize) * 100
+	// for i := 0; i <= totalSize; i += chunkSize {
+	// 	// 模拟每次下载一个块
+	// 	time.Sleep(1 * time.Second)
 
-		// 创建 DownloadProgress 消息并发送给客户端
-		progressMsg := &pb.DownloadProgress{
-			Id:         "1",
-			TotalBytes: 100,
-		}
+	// 	// 计算进度百分比
+	// 	progress := float32(i) / float32(totalSize) * 100
 
-		// 将进度发送到客户端
-		if err := stream.Send(progressMsg); err != nil {
-			return fmt.Errorf("error sending progress: %v", err)
-		}
+	// 	// 创建 DownloadProgress 消息并发送给客户端
+	// 	progressMsg := &pb.DownloadProgress{
+	// 		Id:         "1",
+	// 		TotalBytes: 100,
+	// 	}
 
-		// 模拟下载完成
-		if i == totalSize {
-			progressMsg = &pb.DownloadProgress{
-				Id:         "1",
-				TotalBytes: 100,
-				Speed:      fmt.Sprint(progress),
-			}
-			if err := stream.Send(progressMsg); err != nil {
-				return fmt.Errorf("error sending final progress: %v", err)
-			}
-			break
-		}
-	}
+	// 	// 将进度发送到客户端
+	// 	if err := stream.Send(progressMsg); err != nil {
+	// 		return fmt.Errorf("error sending progress: %v", err)
+	// 	}
 
-	return nil
+	// 	// 模拟下载完成
+	// 	if i == totalSize {
+	// 		progressMsg = &pb.DownloadProgress{
+	// 			Id:         "1",
+	// 			TotalBytes: 100,
+	// 			Speed:      fmt.Sprint(progress),
+	// 		}
+	// 		if err := stream.Send(progressMsg); err != nil {
+	// 			return fmt.Errorf("error sending final progress: %v", err)
+	// 		}
+	// 		break
+	// 	}
+	// }
+
 }
 
 func (s *server) StopDownload(context.Context, *pb.StopDownloadRequest) (*pb.StopDownloadResponse, error) {

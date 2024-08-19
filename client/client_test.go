@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	pb "proto"
@@ -62,8 +61,8 @@ func TestShow(t *testing.T) {
 	assert.NoError(t, err, err)
 
 	for idx, url := range []string{
-		// testUrl,
-		testPagesUrl,
+		testUrl,
+		// testPagesUrl,
 		// testSeasonsUrl,
 	} {
 		response, err := c.Service.Show(ctx, &pb.ShowRequest{
@@ -85,9 +84,7 @@ func TestParse(t *testing.T) {
 	ctx = metadata.AppendToOutgoingContext(ctx, "plugin.sessdata", value)
 	_, err = c.Service.Init(ctx, nil)
 
-	if err != nil {
-		return
-	}
+	assert.NoError(t, err)
 
 	start := time.Now()
 
@@ -95,54 +92,17 @@ func TestParse(t *testing.T) {
 		Id: "https://example.com/video.mp4",
 		StreamInfos: []*pb.StreamInfo{
 			{
-				Url:       "https://www.bilibili.com/video/av1956391733/",
-				SessionId: "1641484630",
+				Url:       testUrl,
+				SessionId: "973268535",
 			},
 		},
 	}
 
 	resp, err := c.Service.Parse(context.Background(), req)
-	if err != nil {
-		log.Fatalf("Failed to start download: %v", err)
-	}
+	assert.NoError(t, err)
+
 	log.Printf("Server response:%s\n\n\n", resp)
 
 	fmt.Printf("运行时间: %v\n", time.Since(start))
 
-}
-func TestDownload(t *testing.T) {
-	c, err := NewClient()
-	assert.NoError(t, err, err)
-	ctx := context.Background()
-	LoadEnv()
-	value := os.Getenv("SESSDATA")
-	ctx = metadata.AppendToOutgoingContext(ctx, "plugin.sessdata", value)
-	_, err = c.Service.Init(ctx, nil)
-
-	if err != nil {
-		return
-	}
-
-	req := &pb.DownloadRequest{
-		Id: "https://example.com/video.mp4",
-	}
-
-	stream, err := c.Service.Download(context.Background(), req)
-	if err != nil {
-		log.Fatalf("Failed to start download: %v", err)
-	}
-
-	// 从流中接收下载进度
-	for {
-		progress, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatalf("Error receiving progress: %v", err)
-		}
-		fmt.Printf("Download progress: %s - %s\n", progress.Id, progress.Speed)
-	}
-
-	fmt.Println("Download finished.")
 }
