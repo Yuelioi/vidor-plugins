@@ -12,5 +12,7 @@
         "Bvid",
         "joho",
         "vidor"
-    ]
+    ],
+    "editor.tabSize": 2,
+    "prettier.tabWidth": 2,
 }

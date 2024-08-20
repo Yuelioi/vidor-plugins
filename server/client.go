@@ -32,9 +32,9 @@ func NewClient() *Client {
 	}
 }
 
-func newStreamInfo(title, url, sessionId string) *pb.StreamInfo {
+func newTask(title, url, sessionId string) *pb.Task {
 	uid := uuid.New()
-	info := &pb.StreamInfo{
+	info := &pb.Task{
 		Id:        uid.String(),
 		Url:       url,
 		SessionId: sessionId,
@@ -42,37 +42,37 @@ func newStreamInfo(title, url, sessionId string) *pb.StreamInfo {
 	}
 
 	for _, mimeType := range []string{"video", "audio"} {
-		stream := &pb.Stream{}
-		stream.MimeType = mimeType
-		stream.Formats = []*pb.Format{
+		seg := &pb.Segment{}
+		seg.MimeType = mimeType
+		seg.Formats = []*pb.Format{
 			{MimeType: mimeType, Label: "未解析", Code: "未解析"},
 		}
-		info.Streams = append(info.Streams, stream)
+		info.Segments = append(info.Segments, seg)
 
 	}
 	return info
 }
 
-func (c *Client) Info(url string) (*pb.ShowResponse, error) {
-
+func (c *Client) Info(url string) (*pb.VideoInfoResponse, error) {
+	fmt.Printf("url: %v\n", url)
 	aid, bvid := extractAidBvid(url)
 	videoInfo, err := c.BpiService.Video().Info(aid, bvid)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.ShowResponse{
+	resp := &pb.VideoInfoResponse{
 
-		Title:       videoInfo.Data.Title,
-		Cover:       videoInfo.Data.Pic,
-		Author:      videoInfo.Data.Owner.Name,
-		StreamInfos: make([]*pb.StreamInfo, 0),
+		Title:  videoInfo.Data.Title,
+		Cover:  videoInfo.Data.Pic,
+		Author: videoInfo.Data.Owner.Name,
+		Tasks:  make([]*pb.Task, 0),
 	}
 
 	if videoInfo.Data.IsSeasonDisplay {
 
 		for _, episode := range videoInfo.Data.UgcSeason.Sections[0].Episodes {
-			resp.StreamInfos = append(resp.StreamInfos, newStreamInfo(
+			resp.Tasks = append(resp.Tasks, newTask(
 				episode.Title,
 				"https://www.bilibili.com/video/"+strconv.Itoa(episode.AID),
 				strconv.Itoa(episode.CID),
@@ -81,7 +81,7 @@ func (c *Client) Info(url string) (*pb.ShowResponse, error) {
 
 	} else {
 		for _, page := range videoInfo.Data.Pages {
-			resp.StreamInfos = append(resp.StreamInfos, newStreamInfo(
+			resp.Tasks = append(resp.Tasks, newTask(
 				page.Part,
 				"https://www.bilibili.com/video/"+strconv.Itoa(videoInfo.Data.AID)+"?p="+strconv.Itoa(page.Page),
 				strconv.Itoa(page.CID),
@@ -94,59 +94,59 @@ func (c *Client) Info(url string) (*pb.ShowResponse, error) {
 func (c *Client) Parse(pr *pb.ParseRequest) (*pb.ParseResponse, error) {
 	resp := &pb.ParseResponse{}
 
-	for _, info := range pr.StreamInfos {
+	for _, info := range pr.Tasks {
 		avid, bvid := extractAidBvid(info.Url)
 		cid, err := strconv.Atoi(info.SessionId)
 		if err != nil {
 			return nil, err
 		}
-		streamData, err := c.BpiService.Video().Stream(avid, bvid, cid, 0)
+		segData, err := c.BpiService.Video().Stream(avid, bvid, cid, 0)
 		if err != nil {
 			return nil, err
 		}
 
-		if streamData.Code != 0 {
+		if segData.Code != 0 {
 			return nil, errors.New("获取数据失败")
 		}
 
-		newStreamInfo := &pb.StreamInfo{}
+		newTask := &pb.Task{}
 
-		for _, video := range streamData.Data.Dash.Video {
+		for _, video := range segData.Data.Dash.Video {
 
-			stream := &pb.Stream{}
-			stream.MimeType = "video"
+			seg := &pb.Segment{}
+			seg.MimeType = "video"
 
 			label := bv.VideoQualityMap[video.ID]
 			code := bv.VideoCodecMap[video.Codecid]
-			stream.Formats = []*pb.Format{
+			seg.Formats = []*pb.Format{
 				{Id: int64(video.ID), MimeType: "video", Label: label, Code: code, Url: video.BaseURL},
 			}
-			newStreamInfo.Streams = append(newStreamInfo.Streams, stream)
+			newTask.Segments = append(newTask.Segments, seg)
 		}
-		for _, audio := range streamData.Data.Dash.Audio {
+		for _, audio := range segData.Data.Dash.Audio {
 
-			stream := &pb.Stream{}
-			stream.MimeType = "audio"
+			seg := &pb.Segment{}
+			seg.MimeType = "audio"
 
 			label := bv.AudioQualityMap[audio.ID]
-			stream.Formats = []*pb.Format{
+			seg.Formats = []*pb.Format{
 				{Id: int64(audio.ID), MimeType: "video", Label: label, Code: "", Url: audio.BaseURL},
 			}
-			newStreamInfo.Streams = append(newStreamInfo.Streams, stream)
+			newTask.Segments = append(newTask.Segments, seg)
 		}
 
-		resp.StreamInfos = append(resp.StreamInfos, newStreamInfo)
+		resp.Tasks = append(resp.Tasks, newTask)
 	}
 
 	return resp, nil
 }
 
-func (c *Client) Download(streamInfo *pb.StreamInfo, stream pb.DownloadService_DownloadServer) error {
+func (c *Client) Download(segInfo *pb.Task, seg pb.DownloadService_DownloadServer) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	stopChan := make(chan struct{})
-	c.stopChannels.Store(streamInfo.Id, stopChan)
+	c.stopChannels.Store(segInfo.Id, stopChan)
 
 	start := time.Now()
 
@@ -159,8 +159,8 @@ func (c *Client) Download(streamInfo *pb.StreamInfo, stream pb.DownloadService_D
 			Value: c.BpiService.Client.SESSDATA,
 		})
 
-	url1 := streamInfo.Streams[0].Formats[0].Url
-	// url2 := streamInfo.Streams[0].Formats[0].Url
+	url1 := segInfo.Segments[0].Formats[0].Url
+	// url2 := segInfo.Segments[0].Formats[0].Url
 	resp, err := req.Get(url1)
 
 	if err != nil {
@@ -182,7 +182,7 @@ func (c *Client) Download(streamInfo *pb.StreamInfo, stream pb.DownloadService_D
 		return err
 	}
 
-	if err := c.download(ctx, stream, streamInfo.Id, url1, contentLength, "temp.mp4"); err != nil {
+	if err := c.download(ctx, seg, segInfo.Id, url1, contentLength, "temp.mp4"); err != nil {
 		log.Printf("下载失败：%v", err)
 		return err
 	}
@@ -209,7 +209,7 @@ func autoSetBatchSize(contentLength int64) int64 {
 	batchSize = int64(math.Max(float64(minBatchSize), float64(math.Min(float64(batchSize), float64(maxBatchSize)))))
 	return batchSize
 }
-func (c *Client) download(ctx context.Context, stream pb.DownloadService_DownloadServer, id string, url string, contentLength int64, tempPath string) error {
+func (c *Client) download(ctx context.Context, seg pb.DownloadService_DownloadServer, id string, url string, contentLength int64, tempPath string) error {
 	batchSize := autoSetBatchSize(contentLength)
 	chunkSize := contentLength / batchSize
 	if chunkSize*batchSize < contentLength {
@@ -250,7 +250,7 @@ func (c *Client) download(ctx context.Context, stream pb.DownloadService_Downloa
 					Speed:      fmt.Sprintf("%.2f MB/s", speed*1000/(1024*1024*float64(timeInterval))),
 				}
 
-				if err := stream.Send(progressMsg); err != nil {
+				if err := seg.Send(progressMsg); err != nil {
 					return
 				}
 

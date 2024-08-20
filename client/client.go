@@ -58,12 +58,12 @@ func main() {
 	ctx := context.Background()
 	LoadEnv()
 	value := os.Getenv("SESSDATA")
-	ctx = metadata.AppendToOutgoingContext(ctx, "plugin.sessdata", value)
+	ctx = metadata.AppendToOutgoingContext(ctx, "plugin.sessdata", value, "host", "test")
 	_, err = c.Service.Init(ctx, nil)
 
 	req := &pb.ParseRequest{
 		Id: "https://example.com/video.mp4",
-		StreamInfos: []*pb.StreamInfo{
+		Tasks: []*pb.Task{
 			{
 				Url:       testUrl,
 				SessionId: "973268535",
@@ -71,12 +71,12 @@ func main() {
 		},
 	}
 
-	resp, err := c.Service.Parse(context.Background(), req)
+	resp, err := c.Service.ParseEpisodes(context.Background(), req)
 
-	fmt.Print("解析后内容", resp.StreamInfos[0].Streams[0].Formats[0])
+	fmt.Print("解析后内容", resp.Tasks[0].Segments[0].Formats[0])
 
 	reqDown := &pb.DownloadRequest{
-		StreamInfos: resp.StreamInfos,
+		Tasks: resp.Tasks,
 	}
 
 	stream, err := c.Service.Download(context.Background(), reqDown)
@@ -84,7 +84,7 @@ func main() {
 	go func() {
 		time.Sleep(time.Second * 10)
 		_, err := c.Service.StopDownload(ctx, &pb.StopDownloadRequest{
-			Id: resp.StreamInfos[0].Id,
+			Id: resp.Tasks[0].Id,
 		})
 
 		fmt.Printf("err: %v\n", err)

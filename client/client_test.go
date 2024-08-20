@@ -23,12 +23,11 @@ func TestInit(t *testing.T) {
 	LoadEnv()
 	value := os.Getenv("SESSDATA")
 
-	ctx = metadata.AppendToOutgoingContext(ctx, "plugin.sessdata", value)
+	ctx = metadata.AppendToOutgoingContext(ctx, "plugin.sessdata", value, "host", "test")
+	// ctx = metadata.AppendToOutgoingContext(ctx, "plugin.sessdata", value, "host", "test")
 	_, err = c.Service.Init(ctx, nil)
 
-	if err != nil {
-		return
-	}
+	assert.NoError(t, err)
 
 }
 func TestHealth(t *testing.T) {
@@ -65,7 +64,7 @@ func TestShow(t *testing.T) {
 		// testPagesUrl,
 		// testSeasonsUrl,
 	} {
-		response, err := c.Service.Show(ctx, &pb.ShowRequest{
+		response, err := c.Service.GetVideoInfo(ctx, &pb.VideoInfoRequest{
 			Url: url,
 		})
 		assert.NoError(t, err, err)
@@ -90,7 +89,7 @@ func TestParse(t *testing.T) {
 
 	req := &pb.ParseRequest{
 		Id: "https://example.com/video.mp4",
-		StreamInfos: []*pb.StreamInfo{
+		Tasks: []*pb.Task{
 			{
 				Url:       testUrl,
 				SessionId: "973268535",
@@ -98,7 +97,7 @@ func TestParse(t *testing.T) {
 		},
 	}
 
-	resp, err := c.Service.Parse(context.Background(), req)
+	resp, err := c.Service.ParseEpisodes(context.Background(), req)
 	assert.NoError(t, err)
 
 	log.Printf("Server response:%s\n\n\n", resp)

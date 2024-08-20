@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	empty "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -35,20 +36,26 @@ func (s *healthServer) Check(ctx context.Context, in *healthpb.HealthCheckReques
 
 // 初始化
 func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
+	fmt.Print("someone try to connect\n")
+	var initErr error
+
 	s.once.Do(func() {
-		// 创建 client
-		s.client = NewClient()
 
-		// 创建任务队列
-		s.taskQueue = NewTaskQueue()
-
-		// 初始化插件配置
-		s.LoadConfig(ctx)
 	})
-	return &empty.Empty{}, nil
+
+	s.LoadConfig(ctx)
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		host := md.Get("host")
+		if len(host) > 0 {
+			fmt.Printf("host: %v\n", host[0])
+		}
+	}
+	return &empty.Empty{}, initErr
 }
 
-func (s *server) Show(ctx context.Context, sr *pb.ShowRequest) (*pb.ShowResponse, error) {
+func (s *server) Show(ctx context.Context, sr *pb.VideoInfoRequest) (*pb.VideoInfoResponse, error) {
 	return s.client.Info(sr.Url)
 }
 
@@ -58,8 +65,8 @@ func (s *server) Parse(ctx context.Context, pr *pb.ParseRequest) (*pb.ParseRespo
 
 func (s *server) Download(dr *pb.DownloadRequest, stream pb.DownloadService_DownloadServer) error {
 
-	for _, streamInfo := range dr.StreamInfos {
-		s.client.Download(streamInfo, stream)
+	for _, task := range dr.Tasks {
+		s.client.Download(task, stream)
 	}
 
 	return nil
@@ -100,8 +107,13 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
+	s := &server{
+		client:    NewClient(),
+		taskQueue: NewTaskQueue(),
+	}
+
 	healthpb.RegisterHealthServer(grpcServer, &healthServer{})
-	pb.RegisterDownloadServiceServer(grpcServer, &server{})
+	pb.RegisterDownloadServiceServer(grpcServer, s)
 
 	log.Printf("Server1 listening on %d", actualPort)
 	if err := grpcServer.Serve(lis); err != nil {

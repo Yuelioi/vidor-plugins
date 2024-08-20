@@ -20,25 +20,23 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DownloadService_Init_FullMethodName         = "/DownloadService/Init"
-	DownloadService_Shutdown_FullMethodName     = "/DownloadService/Shutdown"
-	DownloadService_Show_FullMethodName         = "/DownloadService/Show"
-	DownloadService_Parse_FullMethodName        = "/DownloadService/Parse"
-	DownloadService_Download_FullMethodName     = "/DownloadService/Download"
-	DownloadService_StopDownload_FullMethodName = "/DownloadService/StopDownload"
+	DownloadService_Init_FullMethodName          = "/DownloadService/Init"
+	DownloadService_Shutdown_FullMethodName      = "/DownloadService/Shutdown"
+	DownloadService_GetVideoInfo_FullMethodName  = "/DownloadService/GetVideoInfo"
+	DownloadService_ParseEpisodes_FullMethodName = "/DownloadService/ParseEpisodes"
+	DownloadService_Download_FullMethodName      = "/DownloadService/Download"
+	DownloadService_StopDownload_FullMethodName  = "/DownloadService/StopDownload"
 )
 
 // DownloadServiceClient is the client API for DownloadService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-//
-// Service for handling downloads
 type DownloadServiceClient interface {
 	Init(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// ShowInfo sends metadata about the downloadable content.
-	Show(ctx context.Context, in *ShowRequest, opts ...grpc.CallOption) (*ShowResponse, error)
-	Parse(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error)
+	GetVideoInfo(ctx context.Context, in *VideoInfoRequest, opts ...grpc.CallOption) (*VideoInfoResponse, error)
+	ParseEpisodes(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error)
 	// Download starts the download process and streams download progress.
 	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error)
 	// StopDownload stops an ongoing download.
@@ -73,20 +71,20 @@ func (c *downloadServiceClient) Shutdown(ctx context.Context, in *emptypb.Empty,
 	return out, nil
 }
 
-func (c *downloadServiceClient) Show(ctx context.Context, in *ShowRequest, opts ...grpc.CallOption) (*ShowResponse, error) {
+func (c *downloadServiceClient) GetVideoInfo(ctx context.Context, in *VideoInfoRequest, opts ...grpc.CallOption) (*VideoInfoResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ShowResponse)
-	err := c.cc.Invoke(ctx, DownloadService_Show_FullMethodName, in, out, cOpts...)
+	out := new(VideoInfoResponse)
+	err := c.cc.Invoke(ctx, DownloadService_GetVideoInfo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *downloadServiceClient) Parse(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error) {
+func (c *downloadServiceClient) ParseEpisodes(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ParseResponse)
-	err := c.cc.Invoke(ctx, DownloadService_Parse_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, DownloadService_ParseEpisodes_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,14 +123,12 @@ func (c *downloadServiceClient) StopDownload(ctx context.Context, in *StopDownlo
 // DownloadServiceServer is the server API for DownloadService service.
 // All implementations must embed UnimplementedDownloadServiceServer
 // for forward compatibility.
-//
-// Service for handling downloads
 type DownloadServiceServer interface {
 	Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// ShowInfo sends metadata about the downloadable content.
-	Show(context.Context, *ShowRequest) (*ShowResponse, error)
-	Parse(context.Context, *ParseRequest) (*ParseResponse, error)
+	GetVideoInfo(context.Context, *VideoInfoRequest) (*VideoInfoResponse, error)
+	ParseEpisodes(context.Context, *ParseRequest) (*ParseResponse, error)
 	// Download starts the download process and streams download progress.
 	Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error
 	// StopDownload stops an ongoing download.
@@ -153,11 +149,11 @@ func (UnimplementedDownloadServiceServer) Init(context.Context, *emptypb.Empty) 
 func (UnimplementedDownloadServiceServer) Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
 }
-func (UnimplementedDownloadServiceServer) Show(context.Context, *ShowRequest) (*ShowResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Show not implemented")
+func (UnimplementedDownloadServiceServer) GetVideoInfo(context.Context, *VideoInfoRequest) (*VideoInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetVideoInfo not implemented")
 }
-func (UnimplementedDownloadServiceServer) Parse(context.Context, *ParseRequest) (*ParseResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Parse not implemented")
+func (UnimplementedDownloadServiceServer) ParseEpisodes(context.Context, *ParseRequest) (*ParseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ParseEpisodes not implemented")
 }
 func (UnimplementedDownloadServiceServer) Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error {
 	return status.Errorf(codes.Unimplemented, "method Download not implemented")
@@ -222,38 +218,38 @@ func _DownloadService_Shutdown_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DownloadService_Show_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ShowRequest)
+func _DownloadService_GetVideoInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VideoInfoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DownloadServiceServer).Show(ctx, in)
+		return srv.(DownloadServiceServer).GetVideoInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DownloadService_Show_FullMethodName,
+		FullMethod: DownloadService_GetVideoInfo_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DownloadServiceServer).Show(ctx, req.(*ShowRequest))
+		return srv.(DownloadServiceServer).GetVideoInfo(ctx, req.(*VideoInfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DownloadService_Parse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DownloadService_ParseEpisodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ParseRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DownloadServiceServer).Parse(ctx, in)
+		return srv.(DownloadServiceServer).ParseEpisodes(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DownloadService_Parse_FullMethodName,
+		FullMethod: DownloadService_ParseEpisodes_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DownloadServiceServer).Parse(ctx, req.(*ParseRequest))
+		return srv.(DownloadServiceServer).ParseEpisodes(ctx, req.(*ParseRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -303,12 +299,12 @@ var DownloadService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DownloadService_Shutdown_Handler,
 		},
 		{
-			MethodName: "Show",
-			Handler:    _DownloadService_Show_Handler,
+			MethodName: "GetVideoInfo",
+			Handler:    _DownloadService_GetVideoInfo_Handler,
 		},
 		{
-			MethodName: "Parse",
-			Handler:    _DownloadService_Parse_Handler,
+			MethodName: "ParseEpisodes",
+			Handler:    _DownloadService_ParseEpisodes_Handler,
 		},
 		{
 			MethodName: "StopDownload",

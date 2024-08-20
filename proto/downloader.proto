@@ -6,58 +6,50 @@ import "google/protobuf/empty.proto";
 
 option go_package = ".;proto";
 
-// Service for handling downloads
 service DownloadService {
   rpc Init(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
-  // ShowInfo sends metadata about the downloadable content.
-  rpc Show(ShowRequest) returns (ShowResponse) {}
 
-  rpc Parse(ParseRequest) returns (ParseResponse) {}
+  rpc GetVideoInfo(VideoInfoRequest) returns (VideoInfoResponse) {}
 
-  // Download starts the download process and streams download progress.
+  rpc ParseEpisodes(ParseRequest) returns (ParseResponse) {}
+
   rpc Download(DownloadRequest) returns (stream DownloadProgress) {}
 
-  // StopDownload stops an ongoing download.
   rpc StopDownload(StopDownloadRequest) returns (StopDownloadResponse) {}
 }
 
 // ---------------------------- Requests ----------------------------
 
-// Request to show information about the downloadable content.
-message ShowRequest {
+message VideoInfoRequest {
   string url = 1; // The URL to fetch information from.
 }
 
 message ParseRequest {
   string id = 1; // Unique identifier for the download job.
-  repeated StreamInfo stream_infos = 4; // Available formats for download.
+  repeated Task tasks = 2; 
 }
 
-// Request to start a download.
 message DownloadRequest {
   string id = 1; // Unique identifier for the download job.
-  repeated StreamInfo stream_infos = 4; // Available formats for download.
+  repeated Task tasks = 2; 
 }
 
-// Request to stop a download.
 message StopDownloadRequest {
   string id = 1; // Unique identifier for the download job.
-  StreamInfo stream_info = 2;
+  repeated Task tasks = 2; 
 }
 
 // ---------------------------- Responses ----------------------------
 
-// Response containing information about the downloadable content.
-message ShowResponse {
+message VideoInfoResponse {
   string title = 1;                     // Title of the content.
   string cover = 2;                     // Cover image URL.
   string author = 3;                    // Author of the content.
-  repeated StreamInfo stream_infos = 4; // Available formats for download.
+  repeated Task tasks = 4; 
 }
 
-// Progress information during the download process.
 message DownloadProgress {
   string id = 1;               // Unique identifier for the download job.
   int64 bytes_transferred = 2; // Number of bytes transferred.
@@ -67,7 +59,7 @@ message DownloadProgress {
 
 message ParseResponse {
   string id = 1; // Unique identifier for the download job.
-  repeated StreamInfo stream_infos = 4; // Available formats for download.
+  repeated Task tasks = 2; 
 }
 
 // Response for stopping a download.
@@ -77,20 +69,19 @@ message StopDownloadResponse {
 }
 
 // ---------------------------- Models ----------------------------
-
-message StreamInfo {
+// 单个下载任务
+message Task {
   string id = 1;
   string url = 2;
   string session_id = 3;
   string title = 4;
-  repeated Stream streams = 5;
+  repeated Segment segments = 5;
 }
-message Stream {
+message Segment {
   string mime_type = 2;
   repeated Format formats = 3;
 }
 
-// Represents a format that can be downloaded.
 message Format {
   int64 id = 1;         // Identifier for the format.
   string mime_type = 2; // MIME type of the format.
@@ -99,26 +90,3 @@ message Format {
   string url = 5;       // URL for downloading this format.
 }
 
-// Represents a thumbnail for the content.
-message Thumbnail {
-  string url = 1;    // URL of the thumbnail.
-  uint32 width = 2;  // Width of the thumbnail.
-  uint32 height = 3; // Height of the thumbnail.
-}
-
-// Represents a caption track.
-message CaptionTrack {
-  string url = 1;      // URL of the caption track.
-  string language = 2; // Language code for the caption track.
-  string name = 3;     // Name of the caption track.
-}
-
-// Represents metadata about the downloadable content.
-message ContentMetadata {
-  string title = 1;                         // Title of the content.
-  string cover = 2;                         // Cover image URL.
-  string author = 3;                        // Author of the content.
-  repeated Format formats = 4;              // Available formats for download.
-  repeated Thumbnail thumbnails = 5;        // Thumbnails for the content.
-  repeated CaptionTrack caption_tracks = 6; // Caption tracks for the content.
-}
