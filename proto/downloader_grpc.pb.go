@@ -34,12 +34,9 @@ const (
 type DownloadServiceClient interface {
 	Init(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// ShowInfo sends metadata about the downloadable content.
 	GetVideoInfo(ctx context.Context, in *VideoInfoRequest, opts ...grpc.CallOption) (*VideoInfoResponse, error)
 	ParseEpisodes(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error)
-	// Download starts the download process and streams download progress.
 	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error)
-	// StopDownload stops an ongoing download.
 	StopDownload(ctx context.Context, in *StopDownloadRequest, opts ...grpc.CallOption) (*StopDownloadResponse, error)
 }
 
@@ -126,12 +123,9 @@ func (c *downloadServiceClient) StopDownload(ctx context.Context, in *StopDownlo
 type DownloadServiceServer interface {
 	Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	// ShowInfo sends metadata about the downloadable content.
 	GetVideoInfo(context.Context, *VideoInfoRequest) (*VideoInfoResponse, error)
 	ParseEpisodes(context.Context, *ParseRequest) (*ParseResponse, error)
-	// Download starts the download process and streams download progress.
 	Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error
-	// StopDownload stops an ongoing download.
 	StopDownload(context.Context, *StopDownloadRequest) (*StopDownloadResponse, error)
 	mustEmbedUnimplementedDownloadServiceServer()
 }

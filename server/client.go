@@ -19,6 +19,7 @@ import (
 	"github.com/Yuelioi/bilibili/pkg/bpi"
 	bv "github.com/Yuelioi/bilibili/pkg/endpoints/video"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 )
 
 type Client struct {
@@ -34,7 +35,7 @@ func NewClient() *Client {
 
 func newTask(title, url, sessionId string) *pb.Task {
 	uid := uuid.New()
-	info := &pb.Task{
+	task := &pb.Task{
 		Id:        uid.String(),
 		Url:       url,
 		SessionId: sessionId,
@@ -47,14 +48,15 @@ func newTask(title, url, sessionId string) *pb.Task {
 		seg.Formats = []*pb.Format{
 			{MimeType: mimeType, Label: "未解析", Code: "未解析"},
 		}
-		info.Segments = append(info.Segments, seg)
+		task.Segments = append(task.Segments, seg)
 
 	}
-	return info
+	return task
 }
 
-func (c *Client) Info(url string) (*pb.VideoInfoResponse, error) {
-	fmt.Printf("url: %v\n", url)
+// 获取列表基础信息
+func (c *Client) GetVideoInfo(url string) (*pb.VideoInfoResponse, error) {
+	fmt.Printf("GetVideoInfo: %v\n", url)
 	aid, bvid := extractAidBvid(url)
 	videoInfo, err := c.BpiService.Video().Info(aid, bvid)
 	if err != nil {
@@ -74,7 +76,7 @@ func (c *Client) Info(url string) (*pb.VideoInfoResponse, error) {
 		for _, episode := range videoInfo.Data.UgcSeason.Sections[0].Episodes {
 			resp.Tasks = append(resp.Tasks, newTask(
 				episode.Title,
-				"https://www.bilibili.com/video/"+strconv.Itoa(episode.AID),
+				"https://www.bilibili.com/video/av"+strconv.Itoa(episode.AID),
 				strconv.Itoa(episode.CID),
 			))
 		}
@@ -83,7 +85,7 @@ func (c *Client) Info(url string) (*pb.VideoInfoResponse, error) {
 		for _, page := range videoInfo.Data.Pages {
 			resp.Tasks = append(resp.Tasks, newTask(
 				page.Part,
-				"https://www.bilibili.com/video/"+strconv.Itoa(videoInfo.Data.AID)+"?p="+strconv.Itoa(page.Page),
+				"https://www.bilibili.com/video/av"+strconv.Itoa(videoInfo.Data.AID)+"?p="+strconv.Itoa(page.Page),
 				strconv.Itoa(page.CID),
 			))
 		}
@@ -91,49 +93,61 @@ func (c *Client) Info(url string) (*pb.VideoInfoResponse, error) {
 	return resp, nil
 }
 
-func (c *Client) Parse(pr *pb.ParseRequest) (*pb.ParseResponse, error) {
+// 解析
+func (c *Client) ParseEpisodes(pr *pb.ParseRequest) (*pb.ParseResponse, error) {
+	fmt.Printf("ParseTasks: %v\n", pr.Tasks[0].Id)
+
 	resp := &pb.ParseResponse{}
 
-	for _, info := range pr.Tasks {
-		avid, bvid := extractAidBvid(info.Url)
-		cid, err := strconv.Atoi(info.SessionId)
+	for _, task := range pr.Tasks {
+		avid, bvid := extractAidBvid(task.Url)
+		cid, err := strconv.Atoi(task.SessionId)
 		if err != nil {
 			return nil, err
 		}
+
 		segData, err := c.BpiService.Video().Stream(avid, bvid, cid, 0)
 		if err != nil {
 			return nil, err
 		}
 
+		fmt.Printf("segData: %v\n", segData)
 		if segData.Code != 0 {
 			return nil, errors.New("获取数据失败")
 		}
 
-		newTask := &pb.Task{}
+		// 使用 proto.Clone 来进行深拷贝
+		newTask := proto.Clone(task).(*pb.Task)
 
+		// 清空旧的 segment
+		newTask.Segments = make([]*pb.Segment, 0)
+
+		// 处理视频格式
+		videoSeg := &pb.Segment{MimeType: "video"}
 		for _, video := range segData.Data.Dash.Video {
-
-			seg := &pb.Segment{}
-			seg.MimeType = "video"
-
-			label := bv.VideoQualityMap[video.ID]
-			code := bv.VideoCodecMap[video.Codecid]
-			seg.Formats = []*pb.Format{
-				{Id: int64(video.ID), MimeType: "video", Label: label, Code: code, Url: video.BaseURL},
+			format := &pb.Format{
+				Id:       uuid.New().String(),
+				MimeType: "video",
+				Label:    bv.VideoQualityMap[video.ID],
+				Code:     bv.VideoCodecMap[video.Codecid],
+				Url:      video.BaseURL,
 			}
-			newTask.Segments = append(newTask.Segments, seg)
+			videoSeg.Formats = append(videoSeg.Formats, format)
 		}
+		newTask.Segments = append(newTask.Segments, videoSeg)
+
+		// 处理音频格式
+		audioSeg := &pb.Segment{MimeType: "audio"}
 		for _, audio := range segData.Data.Dash.Audio {
-
-			seg := &pb.Segment{}
-			seg.MimeType = "audio"
-
-			label := bv.AudioQualityMap[audio.ID]
-			seg.Formats = []*pb.Format{
-				{Id: int64(audio.ID), MimeType: "video", Label: label, Code: "", Url: audio.BaseURL},
+			format := &pb.Format{
+				Id:       uuid.New().String(),
+				MimeType: "audio",
+				Label:    bv.AudioQualityMap[audio.ID],
+				Url:      audio.BaseURL,
 			}
-			newTask.Segments = append(newTask.Segments, seg)
+			audioSeg.Formats = append(audioSeg.Formats, format)
 		}
+		newTask.Segments = append(newTask.Segments, audioSeg)
 
 		resp.Tasks = append(resp.Tasks, newTask)
 	}

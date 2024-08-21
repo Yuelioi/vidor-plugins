@@ -55,12 +55,12 @@ func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error)
 	return &empty.Empty{}, initErr
 }
 
-func (s *server) Show(ctx context.Context, sr *pb.VideoInfoRequest) (*pb.VideoInfoResponse, error) {
-	return s.client.Info(sr.Url)
+func (s *server) GetVideoInfo(ctx context.Context, sr *pb.VideoInfoRequest) (*pb.VideoInfoResponse, error) {
+	return s.client.GetVideoInfo(sr.Url)
 }
 
-func (s *server) Parse(ctx context.Context, pr *pb.ParseRequest) (*pb.ParseResponse, error) {
-	return s.client.Parse(pr)
+func (s *server) ParseEpisodes(ctx context.Context, pr *pb.ParseRequest) (*pb.ParseResponse, error) {
+	return s.client.ParseEpisodes(pr)
 }
 
 func (s *server) Download(dr *pb.DownloadRequest, stream pb.DownloadService_DownloadServer) error {

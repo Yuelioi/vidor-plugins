@@ -38,7 +38,6 @@ message DownloadRequest {
 
 message StopDownloadRequest {
   string id = 1; // Unique identifier for the download job.
-  repeated Task tasks = 2; 
 }
 
 // ---------------------------- Responses ----------------------------
@@ -51,25 +50,25 @@ message VideoInfoResponse {
 }
 
 message DownloadProgress {
-  string id = 1;               // Unique identifier for the download job.
+  string id = 1;               
   int64 bytes_transferred = 2; // Number of bytes transferred.
   int64 total_bytes = 3;       // Total number of bytes to be transferred.
   string speed = 4;            // Current download speed.
 }
 
 message ParseResponse {
-  string id = 1; // Unique identifier for the download job.
+  string id = 1; 
   repeated Task tasks = 2; 
 }
 
 // Response for stopping a download.
 message StopDownloadResponse {
-  string id = 1;    // Unique identifier for the download job.
+  string id = 1;   
   string state = 2; // State of the download after stopping.
 }
 
 // ---------------------------- Models ----------------------------
-// 单个下载任务
+// 下载任务
 message Task {
   string id = 1;
   string url = 2;
@@ -77,16 +76,18 @@ message Task {
   string title = 4;
   repeated Segment segments = 5;
 }
+
 message Segment {
   string mime_type = 2;
   repeated Format formats = 3;
 }
 
 message Format {
-  int64 id = 1;         // Identifier for the format.
-  string mime_type = 2; // MIME type of the format.
-  string label = 3;     // Media label (e.g., "720p").
-  string code = 4;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
-  string url = 5;       // URL for downloading this format.
+  string id = 1;   
+  int64 fid = 2;        //  format Identifier.
+  string mime_type =3;  // MIME type of the format.
+  string label = 4;     // Media label (e.g., "720p").
+  string code = 5;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
+  string url = 6;       // URL for downloading this format.
 }
 
