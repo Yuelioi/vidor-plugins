@@ -20,22 +20,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DownloadService_Init_FullMethodName          = "/DownloadService/Init"
-	DownloadService_Shutdown_FullMethodName      = "/DownloadService/Shutdown"
-	DownloadService_GetVideoInfo_FullMethodName  = "/DownloadService/GetVideoInfo"
-	DownloadService_ParseEpisodes_FullMethodName = "/DownloadService/ParseEpisodes"
-	DownloadService_Download_FullMethodName      = "/DownloadService/Download"
-	DownloadService_StopDownload_FullMethodName  = "/DownloadService/StopDownload"
+	DownloadService_Init_FullMethodName         = "/DownloadService/Init"
+	DownloadService_Update_FullMethodName       = "/DownloadService/Update"
+	DownloadService_Shutdown_FullMethodName     = "/DownloadService/Shutdown"
+	DownloadService_GetInfo_FullMethodName      = "/DownloadService/GetInfo"
+	DownloadService_Parse_FullMethodName        = "/DownloadService/Parse"
+	DownloadService_Download_FullMethodName     = "/DownloadService/Download"
+	DownloadService_StopDownload_FullMethodName = "/DownloadService/StopDownload"
 )
 
 // DownloadServiceClient is the client API for DownloadService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DownloadServiceClient interface {
+	// 初始化插件
 	Init(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// 更新插件配置
+	Update(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// 关闭插件
 	Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetVideoInfo(ctx context.Context, in *VideoInfoRequest, opts ...grpc.CallOption) (*VideoInfoResponse, error)
-	ParseEpisodes(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error)
+	// 获取
+	GetInfo(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error)
+	Parse(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error)
 	Download(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error)
 	StopDownload(ctx context.Context, in *StopDownloadRequest, opts ...grpc.CallOption) (*StopDownloadResponse, error)
 }
@@ -58,6 +64,16 @@ func (c *downloadServiceClient) Init(ctx context.Context, in *emptypb.Empty, opt
 	return out, nil
 }
 
+func (c *downloadServiceClient) Update(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, DownloadService_Update_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *downloadServiceClient) Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -68,20 +84,20 @@ func (c *downloadServiceClient) Shutdown(ctx context.Context, in *emptypb.Empty,
 	return out, nil
 }
 
-func (c *downloadServiceClient) GetVideoInfo(ctx context.Context, in *VideoInfoRequest, opts ...grpc.CallOption) (*VideoInfoResponse, error) {
+func (c *downloadServiceClient) GetInfo(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(VideoInfoResponse)
-	err := c.cc.Invoke(ctx, DownloadService_GetVideoInfo_FullMethodName, in, out, cOpts...)
+	out := new(InfoResponse)
+	err := c.cc.Invoke(ctx, DownloadService_GetInfo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *downloadServiceClient) ParseEpisodes(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error) {
+func (c *downloadServiceClient) Parse(ctx context.Context, in *ParseRequest, opts ...grpc.CallOption) (*ParseResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ParseResponse)
-	err := c.cc.Invoke(ctx, DownloadService_ParseEpisodes_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, DownloadService_Parse_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +137,15 @@ func (c *downloadServiceClient) StopDownload(ctx context.Context, in *StopDownlo
 // All implementations must embed UnimplementedDownloadServiceServer
 // for forward compatibility.
 type DownloadServiceServer interface {
+	// 初始化插件
 	Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	// 更新插件配置
+	Update(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	// 关闭插件
 	Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	GetVideoInfo(context.Context, *VideoInfoRequest) (*VideoInfoResponse, error)
-	ParseEpisodes(context.Context, *ParseRequest) (*ParseResponse, error)
+	// 获取
+	GetInfo(context.Context, *InfoRequest) (*InfoResponse, error)
+	Parse(context.Context, *ParseRequest) (*ParseResponse, error)
 	Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error
 	StopDownload(context.Context, *StopDownloadRequest) (*StopDownloadResponse, error)
 	mustEmbedUnimplementedDownloadServiceServer()
@@ -140,14 +161,17 @@ type UnimplementedDownloadServiceServer struct{}
 func (UnimplementedDownloadServiceServer) Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Init not implemented")
 }
+func (UnimplementedDownloadServiceServer) Update(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
+}
 func (UnimplementedDownloadServiceServer) Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
 }
-func (UnimplementedDownloadServiceServer) GetVideoInfo(context.Context, *VideoInfoRequest) (*VideoInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetVideoInfo not implemented")
+func (UnimplementedDownloadServiceServer) GetInfo(context.Context, *InfoRequest) (*InfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInfo not implemented")
 }
-func (UnimplementedDownloadServiceServer) ParseEpisodes(context.Context, *ParseRequest) (*ParseResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ParseEpisodes not implemented")
+func (UnimplementedDownloadServiceServer) Parse(context.Context, *ParseRequest) (*ParseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Parse not implemented")
 }
 func (UnimplementedDownloadServiceServer) Download(*DownloadRequest, grpc.ServerStreamingServer[DownloadProgress]) error {
 	return status.Errorf(codes.Unimplemented, "method Download not implemented")
@@ -194,6 +218,24 @@ func _DownloadService_Init_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DownloadService_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DownloadServiceServer).Update(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DownloadService_Update_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DownloadServiceServer).Update(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DownloadService_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -212,38 +254,38 @@ func _DownloadService_Shutdown_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DownloadService_GetVideoInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(VideoInfoRequest)
+func _DownloadService_GetInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InfoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DownloadServiceServer).GetVideoInfo(ctx, in)
+		return srv.(DownloadServiceServer).GetInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DownloadService_GetVideoInfo_FullMethodName,
+		FullMethod: DownloadService_GetInfo_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DownloadServiceServer).GetVideoInfo(ctx, req.(*VideoInfoRequest))
+		return srv.(DownloadServiceServer).GetInfo(ctx, req.(*InfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DownloadService_ParseEpisodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DownloadService_Parse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ParseRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DownloadServiceServer).ParseEpisodes(ctx, in)
+		return srv.(DownloadServiceServer).Parse(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DownloadService_ParseEpisodes_FullMethodName,
+		FullMethod: DownloadService_Parse_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DownloadServiceServer).ParseEpisodes(ctx, req.(*ParseRequest))
+		return srv.(DownloadServiceServer).Parse(ctx, req.(*ParseRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -289,16 +331,20 @@ var DownloadService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DownloadService_Init_Handler,
 		},
 		{
+			MethodName: "Update",
+			Handler:    _DownloadService_Update_Handler,
+		},
+		{
 			MethodName: "Shutdown",
 			Handler:    _DownloadService_Shutdown_Handler,
 		},
 		{
-			MethodName: "GetVideoInfo",
-			Handler:    _DownloadService_GetVideoInfo_Handler,
+			MethodName: "GetInfo",
+			Handler:    _DownloadService_GetInfo_Handler,
 		},
 		{
-			MethodName: "ParseEpisodes",
-			Handler:    _DownloadService_ParseEpisodes_Handler,
+			MethodName: "Parse",
+			Handler:    _DownloadService_Parse_Handler,
 		},
 		{
 			MethodName: "StopDownload",

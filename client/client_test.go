@@ -64,7 +64,7 @@ func TestShow(t *testing.T) {
 		// testPagesUrl,
 		// testSeasonsUrl,
 	} {
-		response, err := c.Service.GetVideoInfo(ctx, &pb.VideoInfoRequest{
+		response, err := c.Service.GetInfo(ctx, &pb.InfoRequest{
 			Url: url,
 		})
 		assert.NoError(t, err, err)
@@ -97,7 +97,7 @@ func TestParse(t *testing.T) {
 		},
 	}
 
-	resp, err := c.Service.ParseEpisodes(context.Background(), req)
+	resp, err := c.Service.Parse(context.Background(), req)
 	assert.NoError(t, err)
 
 	log.Printf("Server response:%s\n\n\n", resp)

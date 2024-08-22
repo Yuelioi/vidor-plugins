@@ -71,7 +71,7 @@ func main() {
 		},
 	}
 
-	resp, err := c.Service.ParseEpisodes(context.Background(), req)
+	resp, err := c.Service.Parse(context.Background(), req)
 
 	fmt.Print("解析后内容", resp.Tasks[0].Segments[0].Formats[0])
 

@@ -55,25 +55,25 @@ func newTask(title, url, sessionId string) *pb.Task {
 }
 
 // 获取列表基础信息
-func (c *Client) GetVideoInfo(url string) (*pb.VideoInfoResponse, error) {
-	fmt.Printf("GetVideoInfo: %v\n", url)
+func (c *Client) GetInfo(url string) (*pb.InfoResponse, error) {
+	fmt.Printf("GetInfo: %v\n", url)
 	aid, bvid := extractAidBvid(url)
-	videoInfo, err := c.BpiService.Video().Info(aid, bvid)
+	Info, err := c.BpiService.Video().Info(aid, bvid)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.VideoInfoResponse{
+	resp := &pb.InfoResponse{
 
-		Title:  videoInfo.Data.Title,
-		Cover:  videoInfo.Data.Pic,
-		Author: videoInfo.Data.Owner.Name,
+		Title:  Info.Data.Title,
+		Cover:  Info.Data.Pic,
+		Author: Info.Data.Owner.Name,
 		Tasks:  make([]*pb.Task, 0),
 	}
 
-	if videoInfo.Data.IsSeasonDisplay {
+	if Info.Data.IsSeasonDisplay {
 
-		for _, episode := range videoInfo.Data.UgcSeason.Sections[0].Episodes {
+		for _, episode := range Info.Data.UgcSeason.Sections[0].Episodes {
 			resp.Tasks = append(resp.Tasks, newTask(
 				episode.Title,
 				"https://www.bilibili.com/video/av"+strconv.Itoa(episode.AID),
@@ -82,10 +82,10 @@ func (c *Client) GetVideoInfo(url string) (*pb.VideoInfoResponse, error) {
 		}
 
 	} else {
-		for _, page := range videoInfo.Data.Pages {
+		for _, page := range Info.Data.Pages {
 			resp.Tasks = append(resp.Tasks, newTask(
 				page.Part,
-				"https://www.bilibili.com/video/av"+strconv.Itoa(videoInfo.Data.AID)+"?p="+strconv.Itoa(page.Page),
+				"https://www.bilibili.com/video/av"+strconv.Itoa(Info.Data.AID)+"?p="+strconv.Itoa(page.Page),
 				strconv.Itoa(page.CID),
 			))
 		}
@@ -94,7 +94,7 @@ func (c *Client) GetVideoInfo(url string) (*pb.VideoInfoResponse, error) {
 }
 
 // 解析
-func (c *Client) ParseEpisodes(pr *pb.ParseRequest) (*pb.ParseResponse, error) {
+func (c *Client) Parse(pr *pb.ParseRequest) (*pb.ParseResponse, error) {
 	fmt.Printf("ParseTasks: %v\n", pr.Tasks[0].Id)
 
 	resp := &pb.ParseResponse{}

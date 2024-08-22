@@ -19,9 +19,8 @@ import (
 
 type server struct {
 	pb.UnimplementedDownloadServiceServer
-	client    *Client
-	taskQueue *TaskQueue
-	once      sync.Once
+	client *Client
+	once   sync.Once
 }
 
 type healthServer struct {
@@ -39,9 +38,7 @@ func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error)
 	fmt.Print("someone try to connect\n")
 	var initErr error
 
-	s.once.Do(func() {
-
-	})
+	s.once.Do(func() {})
 
 	s.LoadConfig(ctx)
 
@@ -55,12 +52,12 @@ func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error)
 	return &empty.Empty{}, initErr
 }
 
-func (s *server) GetVideoInfo(ctx context.Context, sr *pb.VideoInfoRequest) (*pb.VideoInfoResponse, error) {
-	return s.client.GetVideoInfo(sr.Url)
+func (s *server) GetInfo(ctx context.Context, sr *pb.InfoRequest) (*pb.InfoResponse, error) {
+	return s.client.GetInfo(sr.Url)
 }
 
-func (s *server) ParseEpisodes(ctx context.Context, pr *pb.ParseRequest) (*pb.ParseResponse, error) {
-	return s.client.ParseEpisodes(pr)
+func (s *server) Parse(ctx context.Context, pr *pb.ParseRequest) (*pb.ParseResponse, error) {
+	return s.client.Parse(pr)
 }
 
 func (s *server) Download(dr *pb.DownloadRequest, stream pb.DownloadService_DownloadServer) error {
@@ -90,10 +87,10 @@ func (s *server) StopDownload(ctx context.Context, sr *pb.StopDownloadRequest) (
 
 func main() {
 
-	port := flag.Int("port", 9001, "Port number to listen on")
+	port := flag.Int("port", 9002, "Port number to listen on")
 	flag.Parse()
 
-	lis, err := net.Listen("tcp", "localhost:9001")
+	lis, err := net.Listen("tcp", "localhost:9002")
 	if err != nil {
 		log.Fatalf("Failed to listen on TCP: %v", err)
 	}
@@ -108,8 +105,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	s := &server{
-		client:    NewClient(),
-		taskQueue: NewTaskQueue(),
+		client: NewClient(),
 	}
 
 	healthpb.RegisterHealthServer(grpcServer, &healthServer{})

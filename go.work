@@ -2,7 +2,8 @@ go 1.22.5
 
 use (
 	../bilibili
+	./bili
 	./client
 	./proto
-	./server
+	./youtube
 )

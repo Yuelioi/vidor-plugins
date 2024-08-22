@@ -7,64 +7,67 @@ import "google/protobuf/empty.proto";
 option go_package = ".;proto";
 
 service DownloadService {
+  // 初始化插件
   rpc Init(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // 更新插件配置
+  rpc Update(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // 关闭插件
   rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
+  // 获取
+  rpc GetInfo(InfoRequest) returns (InfoResponse) {}
 
-  rpc GetVideoInfo(VideoInfoRequest) returns (VideoInfoResponse) {}
-
-  rpc ParseEpisodes(ParseRequest) returns (ParseResponse) {}
+  rpc Parse(ParseRequest) returns (ParseResponse) {}
 
   rpc Download(DownloadRequest) returns (stream DownloadProgress) {}
 
   rpc StopDownload(StopDownloadRequest) returns (StopDownloadResponse) {}
 }
 
-// ---------------------------- Requests ----------------------------
+// ---------------------------- 请求 ----------------------------
 
-message VideoInfoRequest {
-  string url = 1; // The URL to fetch information from.
+message InfoRequest {
+  string url = 1; // 下载链接
 }
 
 message ParseRequest {
-  string id = 1; // Unique identifier for the download job.
-  repeated Task tasks = 2; 
+  string id = 1; // 暂时没用
+  repeated Task tasks = 2;
 }
 
 message DownloadRequest {
-  string id = 1; // Unique identifier for the download job.
-  repeated Task tasks = 2; 
+  string id = 1; // 暂时没用
+  repeated Task tasks = 2;
 }
 
 message StopDownloadRequest {
-  string id = 1; // Unique identifier for the download job.
+  string id = 1; // 任务ID
 }
 
 // ---------------------------- Responses ----------------------------
 
-message VideoInfoResponse {
-  string title = 1;                     // Title of the content.
-  string cover = 2;                     // Cover image URL.
-  string author = 3;                    // Author of the content.
-  repeated Task tasks = 4; 
+message InfoResponse {
+  string title = 1;        // 系列标题
+  string cover = 2;        // 封面
+  string author = 3;       // 作者
+  repeated Task tasks = 4; // 任务列表
 }
 
 message DownloadProgress {
-  string id = 1;               
+  string id = 1;               // 任务ID
   int64 bytes_transferred = 2; // Number of bytes transferred.
   int64 total_bytes = 3;       // Total number of bytes to be transferred.
   string speed = 4;            // Current download speed.
 }
 
 message ParseResponse {
-  string id = 1; 
-  repeated Task tasks = 2; 
+  string id = 1; // 暂时没用(可以用于检测是否请求成功)
+  repeated Task tasks = 2;
 }
 
-// Response for stopping a download.
 message StopDownloadResponse {
-  string id = 1;   
-  string state = 2; // State of the download after stopping.
+  string id = 1;
+  string state = 2;
 }
 
 // ---------------------------- Models ----------------------------
@@ -77,17 +80,18 @@ message Task {
   repeated Segment segments = 5;
 }
 
+// 资源片段
 message Segment {
   string mime_type = 2;
   repeated Format formats = 3;
 }
 
+// 资源格式
 message Format {
-  string id = 1;   
+  string id = 1;
   int64 fid = 2;        //  format Identifier.
-  string mime_type =3;  // MIME type of the format.
+  string mime_type = 3; // MIME type of the format.
   string label = 4;     // Media label (e.g., "720p").
   string code = 5;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
   string url = 6;       // URL for downloading this format.
 }
-
