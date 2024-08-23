@@ -19,3 +19,11 @@ tasks:
     dir: "./server"
     cmds:
       - go build
+
+  copy-files:
+    cmds:
+      - powershell -Command "if (-Not (Test-Path '..\\vidor\\internal\\proto')) { New-Item -ItemType Directory -Path '..\\vidor\\proto' }"
+      - powershell -Command "Copy-Item -Path '.\\proto\\*.proto' -Destination '..\\vidor\\internal\\proto' -Force"
+      - powershell -Command "Copy-Item -Path '.\\proto\\*.go' -Destination '..\\vidor\\internal\\proto' -Force"
+    desc: "将 ./proto 下的 *.proto 和 *.go 文件复制到 ../vidor/proto 目录，并覆盖已有文件"
+    aliases: [copy]

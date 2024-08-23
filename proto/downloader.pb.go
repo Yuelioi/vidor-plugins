@@ -558,6 +558,7 @@ func (x *Task) GetSegments() []*Segment {
 	return nil
 }
 
+// 资源片段
 type Segment struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -613,7 +614,7 @@ func (x *Segment) GetFormats() []*Format {
 	return nil
 }
 
-// 格式
+// 资源格式
 type Format struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

@@ -70,6 +70,8 @@ message StopDownloadResponse {
   string state = 2;
 }
 
+
+
 // ---------------------------- Models ----------------------------
 // 下载任务
 message Task {

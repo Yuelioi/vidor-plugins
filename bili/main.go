@@ -54,6 +54,11 @@ func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error)
 	return &empty.Empty{}, initErr
 }
 
+// 更新插件配置
+func (s *server) Update(context.Context, *empty.Empty) (*empty.Empty, error) {
+	return nil, nil
+}
+
 func (s *server) GetInfo(ctx context.Context, sr *pb.InfoRequest) (*pb.InfoResponse, error) {
 	return s.client.GetInfo(sr.Url)
 }
