@@ -1,4 +1,4 @@
-module server
+module bilibili
 
 go 1.21
 

@@ -21,7 +21,6 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	DownloadService_Init_FullMethodName         = "/DownloadService/Init"
-	DownloadService_Update_FullMethodName       = "/DownloadService/Update"
 	DownloadService_Shutdown_FullMethodName     = "/DownloadService/Shutdown"
 	DownloadService_GetInfo_FullMethodName      = "/DownloadService/GetInfo"
 	DownloadService_Parse_FullMethodName        = "/DownloadService/Parse"
@@ -33,10 +32,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DownloadServiceClient interface {
-	// 初始化插件
+	// 初始化/更新插件
 	Init(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// 更新插件配置
-	Update(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// 关闭插件
 	Shutdown(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// 获取
@@ -58,16 +55,6 @@ func (c *downloadServiceClient) Init(ctx context.Context, in *emptypb.Empty, opt
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, DownloadService_Init_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *downloadServiceClient) Update(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DownloadService_Update_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -137,10 +124,8 @@ func (c *downloadServiceClient) StopDownload(ctx context.Context, in *StopDownlo
 // All implementations must embed UnimplementedDownloadServiceServer
 // for forward compatibility.
 type DownloadServiceServer interface {
-	// 初始化插件
+	// 初始化/更新插件
 	Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	// 更新插件配置
-	Update(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// 关闭插件
 	Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// 获取
@@ -160,9 +145,6 @@ type UnimplementedDownloadServiceServer struct{}
 
 func (UnimplementedDownloadServiceServer) Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Init not implemented")
-}
-func (UnimplementedDownloadServiceServer) Update(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
 }
 func (UnimplementedDownloadServiceServer) Shutdown(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
@@ -214,24 +196,6 @@ func _DownloadService_Init_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DownloadServiceServer).Init(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _DownloadService_Update_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DownloadServiceServer).Update(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: DownloadService_Update_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DownloadServiceServer).Update(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -329,10 +293,6 @@ var DownloadService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Init",
 			Handler:    _DownloadService_Init_Handler,
-		},
-		{
-			MethodName: "Update",
-			Handler:    _DownloadService_Update_Handler,
 		},
 		{
 			MethodName: "Shutdown",

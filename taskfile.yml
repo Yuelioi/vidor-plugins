@@ -15,8 +15,8 @@ tasks:
       - buf dep update
     desc: "更新"
     aliases: [up]
-  build:
-    dir: "./server"
+  build-bili:
+    dir: "./bili"
     cmds:
       - go build
 

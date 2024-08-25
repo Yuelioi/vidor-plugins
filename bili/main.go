@@ -7,20 +7,18 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
+	"strconv"
 
 	pb "proto"
 
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/metadata"
 	empty "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type server struct {
 	pb.UnimplementedDownloadServiceServer
 	client *Client
-	once   sync.Once
 }
 
 type healthServer struct {
@@ -36,27 +34,16 @@ func (s *healthServer) Check(ctx context.Context, in *healthpb.HealthCheckReques
 // 初始化
 func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
 	fmt.Print("someone try to connect\n")
-	var initErr error
-
-	s.once.Do(func() {
-
-	})
-
-	s.LoadConfig(ctx)
-
-	md, ok := metadata.FromIncomingContext(ctx)
-	if ok {
-		host := md.Get("host")
-		if len(host) > 0 {
-			fmt.Printf("host: %v\n", host[0])
-		}
-	}
-	return &empty.Empty{}, initErr
+	return &empty.Empty{}, nil
 }
 
-// 更新插件配置
-func (s *server) Update(context.Context, *empty.Empty) (*empty.Empty, error) {
-	return nil, nil
+// 关闭
+func (s *server) Shutdown(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
+
+	// 关闭程序
+	os.Exit(0)
+
+	return &empty.Empty{}, nil
 }
 
 func (s *server) GetInfo(ctx context.Context, sr *pb.InfoRequest) (*pb.InfoResponse, error) {
@@ -97,7 +84,9 @@ func main() {
 	port := flag.Int("port", 9001, "Port number to listen on")
 	flag.Parse()
 
-	lis, err := net.Listen("tcp", "localhost:9001")
+	os.WriteFile("log.txt", []byte(strconv.Itoa(*port)), 0644)
+
+	lis, err := net.Listen("tcp", "localhost:"+strconv.Itoa(*port))
 	if err != nil {
 		log.Fatalf("Failed to listen on TCP: %v", err)
 	}

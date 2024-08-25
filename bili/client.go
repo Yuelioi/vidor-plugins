@@ -11,7 +11,6 @@ import (
 	"os"
 	pb "proto"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -167,11 +166,11 @@ func (c *Client) Download(segInfo *pb.Task, seg pb.DownloadService_DownloadServe
 	req := c.BpiService.Client.HTTPClient.R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Referer", "https://www.bilibili.com/").
-		SetHeader("Range", "bytes=0-0"). // 只请求第一个字节
+		SetHeader("Range", "bytes=0-").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
 			Value: c.BpiService.Client.SESSDATA,
-		})
+		}).SetDoNotParseResponse(true)
 
 	url1 := segInfo.Segments[0].Formats[0].Url
 	// url2 := segInfo.Segments[0].Formats[0].Url
@@ -181,20 +180,17 @@ func (c *Client) Download(segInfo *pb.Task, seg pb.DownloadService_DownloadServe
 		return err
 	}
 	// 从响应头中获取 Content-Range 的值
-	contentRange := resp.Header().Get("Content-Range")
-	fmt.Printf("contentRange: %v\n", contentRange)
-
-	parts := strings.Split(contentRange, "/")
-	if len(parts) != 2 {
-		log.Println("Content-Range 头格式不正确:", contentRange)
-		return fmt.Errorf("无法解析视频大小")
+	contentLengthStr := resp.Header().Get("Content-Length")
+	var contentLength int64
+	if contentLengthStr != "" {
+		contentLength, err = strconv.ParseInt(contentLengthStr, 10, 64)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.New("Content-Length header is missing")
 	}
-
-	contentLength, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil {
-		log.Println("解析 Content-Range 失败:", err)
-		return err
-	}
+	fmt.Printf("contentLength: %v\n", contentLength)
 
 	if err := c.download(ctx, seg, segInfo.Id, url1, contentLength, "temp.mp4"); err != nil {
 		log.Printf("下载失败：%v", err)
