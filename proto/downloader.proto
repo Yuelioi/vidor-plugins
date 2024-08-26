@@ -7,8 +7,10 @@ import "google/protobuf/empty.proto";
 option go_package = ".;proto";
 
 service DownloadService {
-  // 初始化/更新插件
+  // 初始化
   rpc Init(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // 更新插件
+  rpc Update(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // 关闭插件
   rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
@@ -67,8 +69,6 @@ message StopDownloadResponse {
   string id = 1;
   string state = 2;
 }
-
-
 
 // ---------------------------- Models ----------------------------
 // 下载任务
