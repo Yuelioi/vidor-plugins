@@ -50,11 +50,11 @@ func (s *server) GetInfo(ctx context.Context, sr *pb.InfoRequest) (*pb.InfoRespo
 	return s.client.GetInfo(sr.Url)
 }
 
-func (s *server) Parse(ctx context.Context, pr *pb.ParseRequest) (*pb.ParseResponse, error) {
+func (s *server) Parse(ctx context.Context, pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 	return s.client.Parse(pr)
 }
 
-func (s *server) Download(dr *pb.DownloadRequest, stream pb.DownloadService_DownloadServer) error {
+func (s *server) Download(dr *pb.TasksRequest, stream pb.DownloadService_DownloadServer) error {
 
 	for _, task := range dr.Tasks {
 		s.client.Download(task, stream)
@@ -64,7 +64,7 @@ func (s *server) Download(dr *pb.DownloadRequest, stream pb.DownloadService_Down
 
 }
 
-func (s *server) StopDownload(ctx context.Context, sr *pb.StopDownloadRequest) (*pb.StopDownloadResponse, error) {
+func (s *server) StopDownload(ctx context.Context, sr *pb.TaskRequest) (*pb.TaskResponse, error) {
 
 	id := sr.Id
 	if stopChan, ok := s.client.stopChannels.Load(id); ok {
@@ -73,7 +73,7 @@ func (s *server) StopDownload(ctx context.Context, sr *pb.StopDownloadRequest) (
 		return nil, nil
 	}
 
-	return &pb.StopDownloadResponse{
+	return &pb.TaskResponse{
 		Id: sr.Id,
 	}, fmt.Errorf("task with ID %s not found", id)
 

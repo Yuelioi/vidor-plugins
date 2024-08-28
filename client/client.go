@@ -61,7 +61,7 @@ func main() {
 	ctx = metadata.AppendToOutgoingContext(ctx, "plugin.sessdata", value, "host", "test")
 	_, err = c.Service.Init(ctx, nil)
 
-	req := &pb.ParseRequest{
+	req := &pb.TasksRequest{
 		Id: "https://example.com/video.mp4",
 		Tasks: []*pb.Task{
 			{
@@ -75,7 +75,7 @@ func main() {
 
 	fmt.Print("解析后内容", resp.Tasks[0].Segments[0].Formats[0])
 
-	reqDown := &pb.DownloadRequest{
+	reqDown := &pb.TasksRequest{
 		Tasks: resp.Tasks,
 	}
 
@@ -83,7 +83,7 @@ func main() {
 
 	go func() {
 		time.Sleep(time.Second * 10)
-		_, err := c.Service.StopDownload(ctx, &pb.StopDownloadRequest{
+		_, err := c.Service.Stop(ctx, &pb.TaskRequest{
 			Id: resp.Tasks[0].Id,
 		})
 

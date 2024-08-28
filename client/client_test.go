@@ -87,7 +87,7 @@ func TestParse(t *testing.T) {
 
 	start := time.Now()
 
-	req := &pb.ParseRequest{
+	req := &pb.TasksRequest{
 		Id: "https://example.com/video.mp4",
 		Tasks: []*pb.Task{
 			{

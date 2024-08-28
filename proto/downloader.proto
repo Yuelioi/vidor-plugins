@@ -9,19 +9,26 @@ option go_package = ".;proto";
 service DownloadService {
   // 初始化
   rpc Init(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // 检查
+  rpc Check(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // 更新插件
   rpc Update(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // 关闭插件
   rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 
-  // 获取
+  // 获取信息
   rpc GetInfo(InfoRequest) returns (InfoResponse) {}
+  // 解析信息
+  rpc Parse(TasksRequest) returns (TasksResponse) {}
 
-  rpc Parse(ParseRequest) returns (ParseResponse) {}
-
-  rpc Download(DownloadRequest) returns (stream DownloadProgress) {}
-
-  rpc StopDownload(StopDownloadRequest) returns (StopDownloadResponse) {}
+  // 下载
+  rpc Download(TasksRequest) returns (stream DownloadProgress) {}
+  // 暂停
+  rpc Pause(TaskRequest) returns ( TaskResponse) {}
+  // 恢复
+  rpc Resume(TaskRequest) returns (TaskResponse) {}
+  // 停止
+  rpc Stop(TaskRequest) returns (TaskResponse) {}
 }
 
 // ---------------------------- 请求 ----------------------------
@@ -30,17 +37,12 @@ message InfoRequest {
   string url = 1; // 下载链接
 }
 
-message ParseRequest {
-  string id = 1; // 暂时没用
+message TasksRequest {
+  string id = 1; 
   repeated Task tasks = 2;
 }
 
-message DownloadRequest {
-  string id = 1; // 暂时没用
-  repeated Task tasks = 2;
-}
-
-message StopDownloadRequest {
+message TaskRequest {
   string id = 1; // 任务ID
 }
 
@@ -60,12 +62,12 @@ message DownloadProgress {
   string speed = 4;            // Current download speed.
 }
 
-message ParseResponse {
-  string id = 1; // 暂时没用(可以用于检测是否请求成功)
+message TasksResponse {
+  string id = 1; // 暂时没用
   repeated Task tasks = 2;
 }
 
-message StopDownloadResponse {
+message TaskResponse {
   string id = 1;
   string state = 2;
 }
@@ -77,13 +79,17 @@ message Task {
   string url = 2;
   string session_id = 3;
   string title = 4;
-  repeated Segment segments = 5;
+  string cover = 5;
+  string workdir = 6;
+  repeated Segment segments = 7;
 }
 
 // 资源片段
 message Segment {
+  string id = 1;
   string mime_type = 2;
-  repeated Format formats = 3;
+  string selected_id = 3;
+  repeated Format formats = 4;
 }
 
 // 资源格式
@@ -94,4 +100,5 @@ message Format {
   string label = 4;     // Media label (e.g., "720p").
   string code = 5;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
   string url = 6;       // URL for downloading this format.
+  string size=7;
 }

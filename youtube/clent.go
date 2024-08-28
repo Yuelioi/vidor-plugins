@@ -116,10 +116,10 @@ func (c *Client) GetInfo(url string) (*pb.InfoResponse, error) {
 }
 
 // 解析
-func (c *Client) Parse(pr *pb.ParseRequest) (*pb.ParseResponse, error) {
+func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 	fmt.Printf("ParseTasks: %v\n", pr.Tasks[0].Id)
 
-	resp := &pb.ParseResponse{}
+	resp := &pb.TasksResponse{}
 
 	for _, task := range pr.Tasks {
 
@@ -169,6 +169,6 @@ func (c *Client) Download(segInfo *pb.Task, seg pb.DownloadService_DownloadServe
 	return nil
 }
 
-func (c *Client) StopDownload(ctx context.Context, sr *pb.StopDownloadRequest) (*pb.StopDownloadResponse, error) {
+func (c *Client) StopDownload(ctx context.Context, sr *pb.TaskRequest) (*pb.TaskResponse, error) {
 	return nil, nil
 }
