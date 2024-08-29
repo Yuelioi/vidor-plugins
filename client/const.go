@@ -21,7 +21,7 @@ func LoadEnv() {
 }
 
 const (
-	testUrl = "https://www.bilibili.com/video/BV1bA411R7BN"
+	testUrl = "https://www.bilibili.com/video/BV1LXsgeyEyf/"
 	// testUrl      = "https://www.bilibili.com/video/BV1nr421M747/"
 	testPagesUrl = "https://www.bilibili.com/video/av1605323758/"
 	// testPages4KUrl   = "https://www.bilibili.com/video/av1605323758/"

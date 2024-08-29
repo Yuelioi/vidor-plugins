@@ -105,14 +105,20 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 			return nil, err
 		}
 
+		print(avid, bvid, cid)
+
 		segData, err := c.BpiService.Video().Stream(avid, bvid, cid, 0)
 		if err != nil {
 			return nil, err
 		}
 
-		fmt.Printf("segData: %v\n", segData)
 		if segData.Code != 0 {
 			return nil, errors.New("获取数据失败")
+		}
+
+		// 过滤掉充电视频
+		if segData.Data.AcceptDescription[0] == "试看" {
+			return nil, errors.New("没有观看权限")
 		}
 
 		// 使用 proto.Clone 来进行深拷贝
@@ -120,6 +126,8 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 
 		// 清空旧的 segment
 		newTask.Segments = make([]*pb.Segment, 0)
+
+		fmt.Printf("segData: %v\n", segData.Data)
 
 		// 处理视频格式
 		videoSeg := &pb.Segment{MimeType: "video"}

@@ -66,13 +66,16 @@ func main() {
 		Tasks: []*pb.Task{
 			{
 				Url:       testUrl,
-				SessionId: "973268535",
+				SessionId: "25628117599",
 			},
 		},
 	}
 
 	resp, err := c.Service.Parse(context.Background(), req)
 
+	if err != nil {
+		fmt.Printf("err: %v\n", err)
+	}
 	fmt.Print("解析后内容", resp.Tasks[0].Segments[0].Formats[0])
 
 	reqDown := &pb.TasksRequest{

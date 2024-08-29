@@ -34,6 +34,7 @@ func (s *healthServer) Check(ctx context.Context, in *healthpb.HealthCheckReques
 // 初始化
 func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
 	fmt.Print("someone try to connect\n")
+	s.LoadSessdata(ctx)
 	return &empty.Empty{}, nil
 }
 
