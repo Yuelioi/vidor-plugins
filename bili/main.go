@@ -12,23 +12,15 @@ import (
 	pb "proto"
 
 	"google.golang.org/grpc"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	empty "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type server struct {
 	pb.UnimplementedDownloadServiceServer
-	client *Client
-}
-
-type healthServer struct {
-	healthpb.UnimplementedHealthServer
-}
-
-func (s *healthServer) Check(ctx context.Context, in *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
-	return &healthpb.HealthCheckResponse{
-		Status: healthpb.HealthCheckResponse_SERVING,
-	}, nil
+	client     *Client
+	grpcServer *grpc.Server
 }
 
 // 初始化
@@ -38,14 +30,25 @@ func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error)
 	return &empty.Empty{}, nil
 }
 
-// 关闭
-func (s *server) Shutdown(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
-
-	// 关闭程序
-	os.Exit(0)
-
+// 更新数据
+func (s *server) Update(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
+	fmt.Print("someone try to update\n")
+	s.LoadSessdata(ctx)
 	return &empty.Empty{}, nil
 }
+
+// 关闭
+func (s *server) Shutdown(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
+	// 关闭程序
+	go func() {
+		s.grpcServer.GracefulStop()
+	}()
+
+	// 返回成功响应
+	return &empty.Empty{}, nil
+}
+
+// 功能
 
 func (s *server) GetInfo(ctx context.Context, sr *pb.InfoRequest) (*pb.InfoResponse, error) {
 	return s.client.GetInfo(sr.Url)
@@ -56,17 +59,18 @@ func (s *server) Parse(ctx context.Context, pr *pb.TasksRequest) (*pb.TasksRespo
 }
 
 func (s *server) Download(dr *pb.TasksRequest, stream pb.DownloadService_DownloadServer) error {
-
 	for _, task := range dr.Tasks {
 		s.client.Download(task, stream)
 	}
-
 	return nil
-
 }
 
-func (s *server) StopDownload(ctx context.Context, sr *pb.TaskRequest) (*pb.TaskResponse, error) {
+// TODO
+func (s *server) Resume(ctx context.Context, pr *pb.TaskRequest) (*pb.TaskResponse, error) {
+	return nil, nil
+}
 
+func (s *server) Stop(ctx context.Context, sr *pb.TaskRequest) (*pb.TaskResponse, error) {
 	id := sr.Id
 	if stopChan, ok := s.client.stopChannels.Load(id); ok {
 		close(stopChan.(chan struct{}))
@@ -77,7 +81,6 @@ func (s *server) StopDownload(ctx context.Context, sr *pb.TaskRequest) (*pb.Task
 	return &pb.TaskResponse{
 		Id: sr.Id,
 	}, fmt.Errorf("task with ID %s not found", id)
-
 }
 
 func main() {
@@ -97,16 +100,23 @@ func main() {
 
 	actualPort := lis.Addr().(*net.TCPAddr).Port
 
-	fmt.Printf("Port: %d\n", actualPort)
-
 	grpcServer := grpc.NewServer()
 
 	s := &server{
-		client: NewClient(),
+		client:     NewClient(),
+		grpcServer: grpcServer,
 	}
 
-	healthpb.RegisterHealthServer(grpcServer, &healthServer{})
 	pb.RegisterDownloadServiceServer(grpcServer, s)
+
+	// 创建健康检查服务
+	healthServer := health.NewServer()
+
+	// 设置服务状态为 SERVING
+	healthServer.SetServingStatus("health_check", grpc_health_v1.HealthCheckResponse_SERVING)
+
+	// 注册健康检查服务到 gRPC 服务器
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
 
 	log.Printf("Server1 listening on %d", actualPort)
 	if err := grpcServer.Serve(lis); err != nil {

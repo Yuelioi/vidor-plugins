@@ -21,7 +21,6 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	DownloadService_Init_FullMethodName     = "/DownloadService/Init"
-	DownloadService_Check_FullMethodName    = "/DownloadService/Check"
 	DownloadService_Update_FullMethodName   = "/DownloadService/Update"
 	DownloadService_Shutdown_FullMethodName = "/DownloadService/Shutdown"
 	DownloadService_GetInfo_FullMethodName  = "/DownloadService/GetInfo"
@@ -38,8 +37,6 @@ const (
 type DownloadServiceClient interface {
 	// 初始化
 	Init(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// 检查
-	Check(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// 更新插件
 	Update(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// 关闭插件
@@ -70,16 +67,6 @@ func (c *downloadServiceClient) Init(ctx context.Context, in *emptypb.Empty, opt
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, DownloadService_Init_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *downloadServiceClient) Check(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DownloadService_Check_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +168,6 @@ func (c *downloadServiceClient) Stop(ctx context.Context, in *TaskRequest, opts 
 type DownloadServiceServer interface {
 	// 初始化
 	Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	// 检查
-	Check(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// 更新插件
 	Update(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	// 关闭插件
@@ -211,9 +196,6 @@ type UnimplementedDownloadServiceServer struct{}
 
 func (UnimplementedDownloadServiceServer) Init(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Init not implemented")
-}
-func (UnimplementedDownloadServiceServer) Check(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Check not implemented")
 }
 func (UnimplementedDownloadServiceServer) Update(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Update not implemented")
@@ -274,24 +256,6 @@ func _DownloadService_Init_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DownloadServiceServer).Init(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _DownloadService_Check_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DownloadServiceServer).Check(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: DownloadService_Check_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DownloadServiceServer).Check(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -443,10 +407,6 @@ var DownloadService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Init",
 			Handler:    _DownloadService_Init_Handler,
-		},
-		{
-			MethodName: "Check",
-			Handler:    _DownloadService_Check_Handler,
 		},
 		{
 			MethodName: "Update",

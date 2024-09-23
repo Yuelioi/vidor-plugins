@@ -9,8 +9,6 @@ option go_package = ".;proto";
 service DownloadService {
   // 初始化
   rpc Init(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  // 检查
-  rpc Check(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // 更新插件
   rpc Update(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // 关闭插件
@@ -24,7 +22,7 @@ service DownloadService {
   // 下载
   rpc Download(TasksRequest) returns (stream DownloadProgress) {}
   // 暂停
-  rpc Pause(TaskRequest) returns ( TaskResponse) {}
+  rpc Pause(TaskRequest) returns (TaskResponse) {}
   // 恢复
   rpc Resume(TaskRequest) returns (TaskResponse) {}
   // 停止
@@ -38,7 +36,7 @@ message InfoRequest {
 }
 
 message TasksRequest {
-  string id = 1; 
+  string id = 1;
   repeated Task tasks = 2;
 }
 
@@ -52,7 +50,8 @@ message InfoResponse {
   string title = 1;        // 系列标题
   string cover = 2;        // 封面
   string author = 3;       // 作者
-  repeated Task tasks = 4; // 任务列表
+  string work_dir = 4;     // 工作路径
+  repeated Task tasks = 5; // 任务列表
 }
 
 message DownloadProgress {
@@ -100,5 +99,5 @@ message Format {
   string label = 4;     // Media label (e.g., "720p").
   string code = 5;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
   string url = 6;       // URL for downloading this format.
-  string size=7;
+  string size = 7;
 }

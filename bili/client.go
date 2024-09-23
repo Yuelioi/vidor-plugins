@@ -132,10 +132,12 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 		// 处理视频格式
 		videoSeg := &pb.Segment{MimeType: "video"}
 		for _, video := range segData.Data.Dash.Video {
+
+			fmt.Printf("video.Codecid: %v\n", video.Codecid)
 			format := &pb.Format{
 				Id:       uuid.New().String(),
 				MimeType: "video",
-				Label:    bv.VideoQualityMap[video.ID],
+				Label:    bv.VideoQualityMap[video.ID] + " | " + bv.VideoCodecMap[video.Codecid],
 				Code:     bv.VideoCodecMap[video.Codecid],
 				Url:      video.BaseURL,
 			}
