@@ -17,11 +17,12 @@ func (s *server) LoadSessdata(ctx context.Context) error {
 		sessdata := md.Get("plugin.sessdata")
 		if len(sessdata) > 0 {
 			s.client.BpiService.Client.SESSDATA = sessdata[0]
+			fmt.Printf("sessdata: %v\n", sessdata[0])
 		}
 
-		host := md.Get("host")
-		if len(host) > 0 {
-			fmt.Printf("host: %v\n", host[0])
+		ffmpeg := md.Get("system.ffmpeg")
+		if len(ffmpeg) > 0 {
+			fmt.Printf("ffmpeg: %v\n", ffmpeg[0])
 		}
 
 	}

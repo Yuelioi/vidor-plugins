@@ -26,7 +26,6 @@ type server struct {
 // 初始化
 func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
 	fmt.Print("someone try to connect\n")
-	s.LoadSessdata(ctx)
 	return &empty.Empty{}, nil
 }
 
@@ -87,8 +86,6 @@ func main() {
 
 	port := flag.Int("port", 9001, "Port number to listen on")
 	flag.Parse()
-
-	os.WriteFile("log.txt", []byte(strconv.Itoa(*port)), 0644)
 
 	lis, err := net.Listen("tcp", "localhost:"+strconv.Itoa(*port))
 	if err != nil {
