@@ -51,7 +51,8 @@ message InfoResponse {
   string cover = 2;        // 封面
   string author = 3;       // 作者
   string work_dir = 4;     // 工作路径
-  repeated Task tasks = 5; // 任务列表
+  bool need_parse = 5;     // 是否需要解析
+  repeated Task tasks = 6; // 任务列表
 }
 
 message DownloadProgress {

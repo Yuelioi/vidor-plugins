@@ -21,6 +21,8 @@ type server struct {
 	pb.UnimplementedDownloadServiceServer
 	client     *Client
 	grpcServer *grpc.Server
+	ffmpeg     string
+	tmpDir     string
 }
 
 // 初始化
