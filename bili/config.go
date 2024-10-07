@@ -22,13 +22,14 @@ func (s *server) LoadSessdata(ctx context.Context) error {
 
 		ffmpeg := md.Get("system.ffmpeg")
 		if len(ffmpeg) > 0 {
-			s.ffmpeg = ffmpeg[0]
 			fmt.Printf("ffmpeg: %v\n", ffmpeg[0])
+			s.ffmpeg = ffmpeg[0]
 		}
 
 		tmps := md.Get("system.tmpdirs")
 		if len(tmps) > 0 {
 			fmt.Printf("tmps: %v\n", tmps[0])
+			s.tmpDir = tmps[0]
 		}
 
 	}

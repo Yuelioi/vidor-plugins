@@ -46,7 +46,7 @@ type DownloadServiceClient interface {
 	// 解析信息
 	Parse(ctx context.Context, in *TasksRequest, opts ...grpc.CallOption) (*TasksResponse, error)
 	// 下载
-	Download(ctx context.Context, in *TasksRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error)
+	Download(ctx context.Context, in *TaskRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error)
 	// 暂停
 	Pause(ctx context.Context, in *TaskRequest, opts ...grpc.CallOption) (*TaskResponse, error)
 	// 恢复
@@ -113,13 +113,13 @@ func (c *downloadServiceClient) Parse(ctx context.Context, in *TasksRequest, opt
 	return out, nil
 }
 
-func (c *downloadServiceClient) Download(ctx context.Context, in *TasksRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error) {
+func (c *downloadServiceClient) Download(ctx context.Context, in *TaskRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadProgress], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &DownloadService_ServiceDesc.Streams[0], DownloadService_Download_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[TasksRequest, DownloadProgress]{ClientStream: stream}
+	x := &grpc.GenericClientStream[TaskRequest, DownloadProgress]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ type DownloadServiceServer interface {
 	// 解析信息
 	Parse(context.Context, *TasksRequest) (*TasksResponse, error)
 	// 下载
-	Download(*TasksRequest, grpc.ServerStreamingServer[DownloadProgress]) error
+	Download(*TaskRequest, grpc.ServerStreamingServer[DownloadProgress]) error
 	// 暂停
 	Pause(context.Context, *TaskRequest) (*TaskResponse, error)
 	// 恢复
@@ -209,7 +209,7 @@ func (UnimplementedDownloadServiceServer) GetInfo(context.Context, *InfoRequest)
 func (UnimplementedDownloadServiceServer) Parse(context.Context, *TasksRequest) (*TasksResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Parse not implemented")
 }
-func (UnimplementedDownloadServiceServer) Download(*TasksRequest, grpc.ServerStreamingServer[DownloadProgress]) error {
+func (UnimplementedDownloadServiceServer) Download(*TaskRequest, grpc.ServerStreamingServer[DownloadProgress]) error {
 	return status.Errorf(codes.Unimplemented, "method Download not implemented")
 }
 func (UnimplementedDownloadServiceServer) Pause(context.Context, *TaskRequest) (*TaskResponse, error) {
@@ -333,11 +333,11 @@ func _DownloadService_Parse_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _DownloadService_Download_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(TasksRequest)
+	m := new(TaskRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(DownloadServiceServer).Download(m, &grpc.GenericServerStream[TasksRequest, DownloadProgress]{ServerStream: stream})
+	return srv.(DownloadServiceServer).Download(m, &grpc.GenericServerStream[TaskRequest, DownloadProgress]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.

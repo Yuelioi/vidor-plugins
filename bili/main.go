@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	pb "proto"
@@ -49,20 +50,30 @@ func (s *server) Shutdown(ctx context.Context, i *empty.Empty) (*empty.Empty, er
 	return &empty.Empty{}, nil
 }
 
-// 功能
-
 func (s *server) GetInfo(ctx context.Context, sr *pb.InfoRequest) (*pb.InfoResponse, error) {
-	return s.client.GetInfo(sr.Url)
+	ir, err := s.client.GetInfo(sr.Url)
+	if err != nil {
+		return nil, err
+	}
+
+	suffix := filepath.Ext(ir.Cover)
+
+	tmpCoverPath := filepath.Join(s.tmpDir, "cover", timestamp()+suffix)
+	err = s.downloadCover(ir.Cover, tmpCoverPath)
+	if err != nil {
+		return nil, err
+	}
+
+	ir.Cover = tmpCoverPath
+	return ir, nil
 }
 
 func (s *server) Parse(ctx context.Context, pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 	return s.client.Parse(pr)
 }
 
-func (s *server) Download(dr *pb.TasksRequest, stream pb.DownloadService_DownloadServer) error {
-	for _, task := range dr.Tasks {
-		s.client.Download(task, stream)
-	}
+func (s *server) Download(tr *pb.TaskRequest, stream pb.DownloadService_DownloadServer) error {
+	s.client.Download(tr.Task, s.tmpDir, s.ffmpeg, stream)
 	return nil
 }
 

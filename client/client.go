@@ -82,7 +82,7 @@ func main() {
 		Tasks: resp.Tasks,
 	}
 
-	stream, err := c.Service.Download(context.Background(), reqDown)
+	stream, err := c.Service.Download(context.Background(), &pb.TaskRequest{Task: reqDown.Tasks[0]})
 
 	go func() {
 		time.Sleep(time.Second * 10)

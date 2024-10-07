@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	pb "proto"
 	"strconv"
 	"sync"
@@ -57,34 +58,34 @@ func newTask(title, url, sessionId string) *pb.Task {
 func (c *Client) GetInfo(url string) (*pb.InfoResponse, error) {
 	fmt.Printf("GetInfo: %v\n", url)
 	aid, bvid := extractAidBvid(url)
-	Info, err := c.BpiService.Video().Info(aid, bvid)
+	vInfo, err := c.BpiService.Video().Info(aid, bvid)
 	if err != nil {
 		return nil, err
 	}
 
 	resp := &pb.InfoResponse{
 
-		Title:  Info.Data.Title,
-		Cover:  Info.Data.Pic,
-		Author: Info.Data.Owner.Name,
-		Tasks:  make([]*pb.Task, 0),
+		Title:     vInfo.Data.Title,
+		Cover:     vInfo.Data.Pic,
+		Author:    vInfo.Data.Owner.Name,
+		Tasks:     make([]*pb.Task, 0),
+		NeedParse: true,
 	}
 
-	if Info.Data.IsSeasonDisplay {
+	if vInfo.Data.IsSeasonDisplay {
 
-		for _, episode := range Info.Data.UgcSeason.Sections[0].Episodes {
+		for _, episode := range vInfo.Data.UgcSeason.Sections[0].Episodes {
 			resp.Tasks = append(resp.Tasks, newTask(
 				episode.Title,
 				"https://www.bilibili.com/video/av"+strconv.Itoa(episode.AID),
 				strconv.Itoa(episode.CID),
 			))
 		}
-
 	} else {
-		for _, page := range Info.Data.Pages {
+		for _, page := range vInfo.Data.Pages {
 			resp.Tasks = append(resp.Tasks, newTask(
 				page.Part,
-				"https://www.bilibili.com/video/av"+strconv.Itoa(Info.Data.AID)+"?p="+strconv.Itoa(page.Page),
+				"https://www.bilibili.com/video/av"+strconv.Itoa(vInfo.Data.AID)+"?p="+strconv.Itoa(page.Page),
 				strconv.Itoa(page.CID),
 			))
 		}
@@ -105,7 +106,10 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 			return nil, err
 		}
 
-		print(avid, bvid, cid)
+		if !task.Selected {
+			resp.Tasks = append(resp.Tasks, task)
+			continue
+		}
 
 		segData, err := c.BpiService.Video().Stream(avid, bvid, cid, 0)
 		if err != nil {
@@ -127,13 +131,10 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 		// 清空旧的 segment
 		newTask.Segments = make([]*pb.Segment, 0)
 
-		fmt.Printf("segData: %v\n", segData.Data)
-
 		// 处理视频格式
 		videoSeg := &pb.Segment{MimeType: "video"}
 		for _, video := range segData.Data.Dash.Video {
 
-			fmt.Printf("video.Codecid: %v\n", video.Codecid)
 			format := &pb.Format{
 				Id:       uuid.New().String(),
 				MimeType: "video",
@@ -164,15 +165,78 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 	return resp, nil
 }
 
-func (c *Client) Download(segInfo *pb.Task, seg pb.DownloadService_DownloadServer) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func (c *Client) Download(segInfo *pb.Task, tmpDir, ffmpeg string, s pb.DownloadService_DownloadServer) error {
 
 	stopChan := make(chan struct{})
 	c.stopChannels.Store(segInfo.Id, stopChan)
 
 	start := time.Now()
 
+	var v *pb.Format
+	var a *pb.Format
+
+	for _, seg := range segInfo.Segments {
+		if seg.MimeType == "video" {
+			for _, fm := range seg.Formats {
+				if fm.Selected {
+					v = fm
+				}
+			}
+		}
+
+		if seg.MimeType == "audio" {
+			for _, fm := range seg.Formats {
+				if fm.Selected {
+					a = fm
+				}
+			}
+		}
+	}
+
+	downloadDir := filepath.Join(tmpDir, "downloading")
+
+	if _, err := os.Stat(downloadDir); os.IsNotExist(err) {
+		err := os.MkdirAll(downloadDir, os.ModePerm)
+		if err != nil {
+			fmt.Printf("创建目录失败: %v\n", err)
+			return err
+		}
+	} else if err != nil {
+		fmt.Printf("检查目录时发生错误: %v\n", err)
+		return nil
+	}
+
+	pureTitle := sanitizeFileName(segInfo.Title)
+	vPath := filepath.Join(downloadDir, pureTitle+".video.tmp.mp4")
+	aPath := filepath.Join(downloadDir, pureTitle+".audio.tmp.mp3")
+	targetPath := filepath.Join(segInfo.WorkDir, pureTitle+".mp4")
+
+	print(vPath, aPath, targetPath)
+
+	// 下载视频
+	if err := c.downloadSeg(v, vPath, segInfo.Id, s); err != nil {
+		log.Print(err.Error())
+		return err
+	}
+
+	// 下载音频
+	if err := c.downloadSeg(a, aPath, segInfo.Id, s); err != nil {
+		log.Print(err.Error())
+		return err
+	}
+
+	// 合并
+	if err := CombineAV(context.TODO(), ffmpeg, vPath, aPath, targetPath); err != nil {
+		log.Print(err.Error())
+		return err
+	}
+
+	log.Printf("下载完成：%v", time.Since(start))
+
+	return nil
+}
+
+func (c *Client) downloadSeg(fm *pb.Format, mediaPath, id string, s pb.DownloadService_DownloadServer) error {
 	req := c.BpiService.Client.HTTPClient.R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Referer", "https://www.bilibili.com/").
@@ -181,10 +245,7 @@ func (c *Client) Download(segInfo *pb.Task, seg pb.DownloadService_DownloadServe
 			Name:  "SESSDATA",
 			Value: c.BpiService.Client.SESSDATA,
 		}).SetDoNotParseResponse(true)
-
-	url1 := segInfo.Segments[0].Formats[0].Url
-	// url2 := segInfo.Segments[0].Formats[0].Url
-	resp, err := req.Get(url1)
+	resp, err := req.Get(fm.Url)
 
 	if err != nil {
 		return err
@@ -200,15 +261,14 @@ func (c *Client) Download(segInfo *pb.Task, seg pb.DownloadService_DownloadServe
 	} else {
 		return errors.New("Content-Length header is missing")
 	}
-	fmt.Printf("contentLength: %v\n", contentLength)
 
-	if err := c.download(ctx, seg, segInfo.Id, url1, contentLength, "temp.mp4"); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := c.download(ctx, s, id, fm.Url, contentLength, mediaPath); err != nil {
 		log.Printf("下载失败：%v", err)
 		return err
 	}
-
-	log.Printf("下载完成：%v", time.Since(start))
-
 	return nil
 }
 
@@ -229,7 +289,8 @@ func autoSetBatchSize(contentLength int64) int64 {
 	batchSize = int64(math.Max(float64(minBatchSize), float64(math.Min(float64(batchSize), float64(maxBatchSize)))))
 	return batchSize
 }
-func (c *Client) download(ctx context.Context, seg pb.DownloadService_DownloadServer, id string, url string, contentLength int64, tempPath string) error {
+
+func (c *Client) download(ctx context.Context, s pb.DownloadService_DownloadServer, id string, url string, contentLength int64, tempPath string) error {
 	batchSize := autoSetBatchSize(contentLength)
 	chunkSize := contentLength / batchSize
 	if chunkSize*batchSize < contentLength {
@@ -270,7 +331,7 @@ func (c *Client) download(ctx context.Context, seg pb.DownloadService_DownloadSe
 					Speed:      fmt.Sprintf("%.2f MB/s", speed*1000/(1024*1024*float64(timeInterval))),
 				}
 
-				if err := seg.Send(progressMsg); err != nil {
+				if err := s.Send(progressMsg); err != nil {
 					return
 				}
 

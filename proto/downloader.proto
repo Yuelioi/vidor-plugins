@@ -20,7 +20,7 @@ service DownloadService {
   rpc Parse(TasksRequest) returns (TasksResponse) {}
 
   // 下载
-  rpc Download(TasksRequest) returns (stream DownloadProgress) {}
+  rpc Download(TaskRequest) returns (stream DownloadProgress) {}
   // 暂停
   rpc Pause(TaskRequest) returns (TaskResponse) {}
   // 恢复
@@ -42,29 +42,32 @@ message TasksRequest {
 
 message TaskRequest {
   string id = 1; // 任务ID
+  Task task =2;
 }
 
 // ---------------------------- Responses ----------------------------
 
+// 主任务信息
 message InfoResponse {
-  string title = 1;        // 系列标题
-  string cover = 2;        // 封面
-  string author = 3;       // 作者
-  string work_dir = 4;     // 工作路径
-  bool need_parse = 5;     // 是否需要解析
-  repeated Task tasks = 6; // 任务列表
+  string title = 1;           // 系列标题
+  string cover = 2;           // 封面
+  string author = 3;          // 作者
+  string downloader_dir = 4;  // 工作路径
+  bool need_parse = 5;        // 是否需要解析
+  repeated Task tasks = 6;    // 任务列表
 }
 
+// 下载进度
 message DownloadProgress {
   string id = 1;               // 任务ID
-  int64 bytes_transferred = 2; // Number of bytes transferred.
-  int64 total_bytes = 3;       // Total number of bytes to be transferred.
-  string speed = 4;            // Current download speed.
+  int64 bytes_transferred = 2; // 已传输数据
+  int64 total_bytes = 3;       // 总数据
+  string speed = 4;            // 当前下载速度
 }
 
 message TasksResponse {
-  string id = 1; // 暂时没用
-  repeated Task tasks = 2;
+  string id = 1;           // 暂时没用
+  repeated Task tasks = 2; // 任务列表
 }
 
 message TaskResponse {
@@ -73,32 +76,42 @@ message TaskResponse {
 }
 
 // ---------------------------- Models ----------------------------
-// 下载任务
+
+// 任务
 message Task {
-  string id = 1;
-  string url = 2;
-  string session_id = 3;
-  string title = 4;
-  string cover = 5;
-  string workdir = 6;
-  repeated Segment segments = 7;
+  string id = 1;                  // ID
+  string url = 2;                 // 链接
+  string session_id = 3;          // 状态ID
+  string title = 4;               // 标题
+  string cover = 5;               // 封面
+  string work_dir = 6;             // 工作路径
+  bool selected =7;               // 是否选择
+  string magic_name = 8;          // 魔法名称
+  int64 size  =9;                 // 大小 (btye)
+  float percent = 10;             // 完成百分比
+  int64 state = 11;               // 任务状态 (1:下载中 2:队列中 3:已完成)
+  string status = 12;             // 任务状况
+  string speed = 13;              // 下载速度
+  float duration = 14;            // 持续时间(秒)
+  repeated Segment segments = 15; // 片段组
 }
 
 // 资源片段
 message Segment {
-  string id = 1;
-  string mime_type = 2;
-  string selected_id = 3;
-  repeated Format formats = 4;
+  string id = 1;                  // ID
+  string mime_type = 2;           // 类型
+  bool selected =3;               // 是否选择
+  repeated Format formats = 4;    // 格式组
 }
 
 // 资源格式
 message Format {
-  string id = 1;
-  int64 fid = 2;        //  format Identifier.
-  string mime_type = 3; // MIME type of the format.
-  string label = 4;     // Media label (e.g., "720p").
+  string id = 1;        // ID
+  int64 fid = 2;        // 格式ID
+  string mime_type = 3; // 类型
+  string label = 4;     // 媒体标签 (e.g., "720p").
   string code = 5;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
   string url = 6;       // URL for downloading this format.
   string size = 7;
+  bool selected =8;
 }
