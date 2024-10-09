@@ -20,6 +20,7 @@ import (
 
 type server struct {
 	pb.UnimplementedDownloadServiceServer
+	tq         *TaskQueue
 	client     *Client
 	grpcServer *grpc.Server
 	ffmpeg     string
@@ -73,8 +74,7 @@ func (s *server) Parse(ctx context.Context, pr *pb.TasksRequest) (*pb.TasksRespo
 }
 
 func (s *server) Download(tr *pb.TaskRequest, stream pb.DownloadService_DownloadServer) error {
-	s.client.Download(tr.Task, s.tmpDir, s.ffmpeg, stream)
-	return nil
+	return s.client.Download(tr.Task, s.tmpDir, s.ffmpeg, stream, s.tq)
 }
 
 // TODO
@@ -113,8 +113,11 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	s := &server{
+		tq:         NewTaskQueue(),
 		client:     NewClient(),
 		grpcServer: grpcServer,
+		ffmpeg:     "",
+		tmpDir:     "",
 	}
 
 	pb.RegisterDownloadServiceServer(grpcServer, s)

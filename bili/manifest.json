@@ -1,0 +1,24 @@
+{
+  "manifest_version": 1,
+  "id": "video-plugin-bilibili",
+  "name": "bilibili",
+  "type": "downloader",
+  "description": "B站下载器",
+  "author": "Yueli",
+  "version": "1.0.0",
+  "homepage": "https://example.com",
+  "docs_url": "https://example.com/docs",
+  "color": "#ff5733",
+  "addr": "localhost:8080",
+  "download_urls": [
+    "https://pub-e9e8108f70e84ed4936fe2511260bdfb.r2.dev/app/vidor/plugins/video-plugin-bilibili-0.0.1.7z",
+    "http://qn-app.yuelili.com/vidor/video-plugin-bilibili@v0.0.1.7z"
+  ],
+  "matches": ["https://www.bilibili.com/video/BV.+", "https://www.bilibili.com/video/av.+"],
+  "categories": ["下载"],
+  "tags": ["下载器", "bilibili", "批量"],
+  "executable": "bilibili.exe",
+  "settings": {
+    "SESSDATA": ""
+  }
+}
