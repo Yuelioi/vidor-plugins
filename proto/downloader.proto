@@ -20,7 +20,7 @@ service DownloadService {
   rpc Parse(TasksRequest) returns (TasksResponse) {}
 
   // 下载
-  rpc Download(TaskRequest) returns (stream DownloadProgress) {}
+  rpc Download(TaskRequest) returns (stream Task) {}
   // 暂停
   rpc Pause(TaskRequest) returns (TaskResponse) {}
   // 恢复
@@ -57,15 +57,6 @@ message InfoResponse {
   repeated Task tasks = 6;   // 任务列表
 }
 
-// 下载进度
-message DownloadProgress {
-  string id = 1;               // 任务ID
-  int64 bytes_transferred = 2; // 已传输数据
-  int64 total_bytes = 3;       // 总数据
-  int64 speed = 4;             // 当前下载速度
-  string status = 5;           // 状态
-}
-
 message TasksResponse {
   string id = 1;           // 暂时没用
   repeated Task tasks = 2; // 任务列表
@@ -85,13 +76,12 @@ message Task {
   string session_id = 3; // 会话ID
   string title = 4;      // 标题
   string cover = 5;      // 封面
-  string work_dir = 6;   // 工作路径
+  string filepath = 6;   // 工作路径
   bool selected = 7;     // 是否选择
-  string magic_name = 8; // 魔法名称
   int64 size = 9;        // 大小 (btye)
   int64 percent = 10;    // 完成百分比
   int64 state = 11;      // 任务状态 (1:下载中 2:队列中 3:已完成)
-  string status = 12;    // 任务状况
+  string status = 12;    // 任务状况 (文本描述)
   int64 speed = 13;      // 下载速度(byte)
   float duration = 14;   // 持续时间(秒)
   repeated Segment segments = 15; // 片段组

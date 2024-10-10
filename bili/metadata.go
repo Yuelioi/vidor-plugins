@@ -8,10 +8,6 @@ import (
 )
 
 func (s *server) LoadConfig(ctx context.Context) error {
-	return s.LoadSessdata(ctx)
-}
-
-func (s *server) LoadSessdata(ctx context.Context) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		sessdata := md.Get("plugin.sessdata")

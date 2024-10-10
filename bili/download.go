@@ -1,68 +1,84 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"sync/atomic"
+	"path/filepath"
+	"strconv"
 )
 
-// command.go
-type Command interface {
-	Execute(url string, chunkStart, chunkEnd int64, out *os.File, totalBytesRead *atomic.Int64, stopChan chan struct{}) error
+type Handler interface {
+	Handle(job *Job, jm *JobManager) error
+	SetNext(next Handler)
 }
 
-type DownloadChunkCommand struct {
-	client *Client
+type BaseHandler struct {
+	next Handler
 }
 
-func NewDownloadChunkCommand(client *Client) *DownloadChunkCommand {
-	return &DownloadChunkCommand{
-		client: client,
+func (bh *BaseHandler) Handle(job *Job, jm *JobManager) error {
+	if bh.next != nil {
+		return bh.next.Handle(job, jm)
 	}
+	return nil
 }
 
-func (d *DownloadChunkCommand) Execute(url string, chunkStart, chunkEnd int64, out *os.File, totalBytesRead *atomic.Int64, stopChan chan struct{}) error {
-	req := d.client.BpiService.Client.HTTPClient.R().
+func (bh *BaseHandler) SetNext(next Handler) Handler {
+	bh.next = next
+	return next
+}
+
+type CoverDownloader struct {
+	BaseHandler
+}
+
+func (bh *CoverDownloader) Handle(job *Job, jm *JobManager) error {
+
+	workDir := filepath.Dir(job.task.Filepath)
+	pureTitle := sanitizeFileName(job.task.Title)
+
+	suffix := filepath.Ext(job.task.Cover)
+	coverPath := filepath.Join(workDir, pureTitle+suffix)
+	if err := downloadCover(job.task.Cover, coverPath); err != nil {
+		return err
+	}
+
+	job.task.Cover = coverPath
+	return nil
+}
+
+// 需要在下载前执行
+type JobRegister struct {
+	BaseHandler
+}
+
+func (bh *JobRegister) Handle(job *Job, jm *JobManager) error {
+	return jm.AddJob(job)
+}
+
+type VideoDownloader struct {
+	BaseHandler
+}
+
+func (bh *VideoDownloader) Handle(job *Job) error {
+	req := job.client.HTTPClient.R().
 		SetHeader("Accept-Ranges", "bytes").
-		SetHeader("Range", fmt.Sprintf("bytes=%d-%d", chunkStart, chunkEnd)).
 		SetHeader("Referer", "https://www.bilibili.com/").
+		SetHeader("Range", "bytes=0-").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
-			Value: d.client.BpiService.Client.SESSDATA,
+			Value: job.client.SESSDATA,
 		}).SetDoNotParseResponse(true)
 
-	resp, err := req.Get(url)
+	resp, err := req.Get(job.task.Url)
 	if err != nil {
 		return err
 	}
-	defer resp.RawBody().Close()
 
-	buffer := make([]byte, bufferSize)
-
-	for {
-		select {
-		case <-stopChan:
-			fmt.Println("Context canceled")
-			return fmt.Errorf("download stopped for chunk %d-%d", chunkStart, chunkEnd)
-		default:
-			n, err := io.ReadFull(resp.RawBody(), buffer)
-			if n > 0 {
-				_, writeErr := out.WriteAt(buffer[:n], chunkStart)
-				if writeErr != nil {
-					return writeErr
-				}
-				chunkStart += int64(n)
-				totalBytesRead.Add(int64(n))
-			}
-
-			if err != nil {
-				if err == io.EOF {
-					return nil // 读取完毕，正常退出
-				}
-				return err // 读取过程中出错，返回错误
-			}
-		}
+	contentLength, err := strconv.ParseInt(resp.Header().Get("Content-Length"), 10, 64)
+	if err != nil {
+		return err
 	}
+
+	return download(job)
+
 }

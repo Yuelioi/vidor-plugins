@@ -19,12 +19,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	bufferSize   = 1024 * 256      // 500kb buffer size
-	chunkSize    = 5 * 1024 * 1024 // 5MB chunk size
-	timeInterval = 333
-)
-
 type Client struct {
 	BpiService   *bpi.BpiService
 	stopChannels sync.Map
@@ -67,7 +61,6 @@ func (c *Client) GetInfo(url string) (*pb.InfoResponse, error) {
 	}
 
 	resp := &pb.InfoResponse{
-
 		Title:     vInfo.Data.Title,
 		Cover:     vInfo.Data.Pic,
 		Author:    vInfo.Data.Owner.Name,
@@ -98,8 +91,6 @@ func (c *Client) GetInfo(url string) (*pb.InfoResponse, error) {
 
 // 解析
 func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
-	fmt.Printf("ParseTasks: %v\n", pr.Tasks[0].Id)
-
 	resp := &pb.TasksResponse{}
 
 	for _, task := range pr.Tasks {
@@ -137,7 +128,6 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 		// 处理视频格式
 		videoSeg := &pb.Segment{MimeType: "video"}
 		for _, video := range segData.Data.Dash.Video {
-
 			format := &pb.Format{
 				Id:       uuid.New().String(),
 				MimeType: "video",
@@ -168,19 +158,16 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 	return resp, nil
 }
 
-func (c *Client) Download(segInfo *pb.Task, tmpDir, ffmpeg string, stream pb.DownloadService_DownloadServer, tq *TaskQueue) error {
-
+func (c *Client) Download(task *pb.Task, tmpDir, ffmpeg string, stream pb.DownloadService_DownloadServer, tq *JobManager) error {
 	stopChan := make(chan struct{})
-	c.stopChannels.Store(segInfo.Id, stopChan)
+	c.stopChannels.Store(task.Id, stopChan)
 
 	start := time.Now()
-
-	// TODO 下载封面
 
 	var v *pb.Format
 	var a *pb.Format
 
-	for _, seg := range segInfo.Segments {
+	for _, seg := range task.Segments {
 		if seg.MimeType == "video" {
 			for _, fm := range seg.Formats {
 				if fm.Selected {
@@ -211,25 +198,6 @@ func (c *Client) Download(segInfo *pb.Task, tmpDir, ffmpeg string, stream pb.Dow
 		return nil
 	}
 
-	pureTitle := sanitizeFileName(segInfo.Title)
-	vPath := filepath.Join(downloadDir, pureTitle+".video.tmp.mp4")
-	aPath := filepath.Join(downloadDir, pureTitle+".audio.tmp.mp3")
-	targetPath := filepath.Join(segInfo.WorkDir, pureTitle+".mp4")
-
-	print(vPath, aPath, targetPath)
-
-	// 下载视频
-	if err := c.downloadSeg(v, vPath, segInfo.Id, stream, tq); err != nil {
-		log.Print(err.Error())
-		return err
-	}
-
-	// 下载音频
-	if err := c.downloadSeg(a, aPath, segInfo.Id, stream, tq); err != nil {
-		log.Print(err.Error())
-		return err
-	}
-
 	// 合并
 	if err := CombineAV(context.TODO(), ffmpeg, vPath, aPath, targetPath); err != nil {
 		log.Print(err.Error())
@@ -241,7 +209,7 @@ func (c *Client) Download(segInfo *pb.Task, tmpDir, ffmpeg string, stream pb.Dow
 	return nil
 }
 
-func (c *Client) downloadSeg(fm *pb.Format, mediaPath, id string, stream pb.DownloadService_DownloadServer, tq *TaskQueue) error {
+func (c *Client) downloadSeg(fm *pb.Format, mediaPath, id string, stream pb.DownloadService_DownloadServer, tq *JobManager) error {
 	req := c.BpiService.Client.HTTPClient.R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Referer", "https://www.bilibili.com/").
@@ -261,7 +229,7 @@ func (c *Client) downloadSeg(fm *pb.Format, mediaPath, id string, stream pb.Down
 		return err
 	}
 
-	task, err := tq.AddTask(id, fm.Url, mediaPath, contentLength, stream)
+	task, err := tq.AddJob(c.BpiService.Client, id, fm.Url, mediaPath, contentLength, stream)
 	if err != nil {
 		return err
 	}

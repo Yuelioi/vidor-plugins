@@ -20,7 +20,7 @@ import (
 
 type server struct {
 	pb.UnimplementedDownloadServiceServer
-	tq         *TaskQueue
+	tq         *JobManager
 	client     *Client
 	grpcServer *grpc.Server
 	ffmpeg     string
@@ -36,8 +36,8 @@ func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error)
 // 更新数据
 func (s *server) Update(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
 	fmt.Print("someone try to update\n")
-	s.LoadSessdata(ctx)
-	return &empty.Empty{}, nil
+	err := s.LoadConfig(ctx)
+	return &empty.Empty{}, err
 }
 
 // 关闭
@@ -58,9 +58,8 @@ func (s *server) GetInfo(ctx context.Context, sr *pb.InfoRequest) (*pb.InfoRespo
 	}
 
 	suffix := filepath.Ext(ir.Cover)
-
 	tmpCoverPath := filepath.Join(s.tmpDir, "cover", timestamp()+suffix)
-	err = s.downloadCover(ir.Cover, tmpCoverPath)
+	err = downloadCover(ir.Cover, tmpCoverPath)
 	if err != nil {
 		return nil, err
 	}
@@ -105,15 +104,12 @@ func main() {
 		log.Fatalf("Failed to listen on TCP: %v", err)
 	}
 
-	fmt.Printf("Port: %d\n", *port)
-	fmt.Printf("PID: %d\n", os.Getpid())
-
 	actualPort := lis.Addr().(*net.TCPAddr).Port
 
 	grpcServer := grpc.NewServer()
 
 	s := &server{
-		tq:         NewTaskQueue(),
+		tq:         NewJobManager(),
 		client:     NewClient(),
 		grpcServer: grpcServer,
 		ffmpeg:     "",
@@ -131,8 +127,8 @@ func main() {
 	// 注册健康检查服务到 gRPC 服务器
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
 
-	log.Printf("Server1 listening on %d", actualPort)
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
+	fmt.Printf("Server Run At Port: %d  PID:%d\n", actualPort, os.Getpid())
 }

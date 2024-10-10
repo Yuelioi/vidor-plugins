@@ -8,8 +8,7 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-func (s *server) downloadCover(url, filePath string) error {
-	// 创建一个新的 resty 客户端
+func downloadCover(url, filePath string) error {
 	client := resty.New()
 
 	response, err := client.R().
