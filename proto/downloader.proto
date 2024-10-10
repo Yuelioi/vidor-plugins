@@ -70,6 +70,7 @@ message TaskResponse {
 // ---------------------------- Models ----------------------------
 
 // 任务
+// 任务可能包含视频片段, 音频片段, 图片资源等等
 message Task {
   string id = 1;         // ID
   string url = 2;        // 链接
@@ -78,16 +79,19 @@ message Task {
   string cover = 5;      // 封面
   string filepath = 6;   // 工作路径
   bool selected = 7;     // 是否选择
+  string magic_name = 8; // 魔法名称
   int64 size = 9;        // 大小 (btye)
   int64 percent = 10;    // 完成百分比
   int64 state = 11;      // 任务状态 (1:下载中 2:队列中 3:已完成)
   string status = 12;    // 任务状况 (文本描述)
   int64 speed = 13;      // 下载速度(byte)
-  float duration = 14;   // 持续时间(秒)
+  int64 duration = 14;   // 持续时间(秒)
   repeated Segment segments = 15; // 片段组
 }
 
 // 资源片段
+// 具体的某一个资源, 比如视频/音频
+// 该资源可能有很多备选项
 message Segment {
   string id = 1;               // ID
   string mime_type = 2;        // 类型
@@ -95,7 +99,7 @@ message Segment {
   repeated Format formats = 4; // 格式组
 }
 
-// 资源格式
+// 资源具体条目
 message Format {
   string id = 1;        // ID
   int64 fid = 2;        // 格式ID
@@ -103,6 +107,6 @@ message Format {
   string label = 4;     // 媒体标签 (e.g., "720p").
   string code = 5;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
   string url = 6;       // URL for downloading this format.
-  string size = 7;
+  int64 size = 7;
   bool selected = 8;
 }

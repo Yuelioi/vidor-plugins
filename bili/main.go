@@ -127,8 +127,9 @@ func main() {
 	// 注册健康检查服务到 gRPC 服务器
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
 
+	fmt.Printf("Server Run At Port: %d  PID:%d\n", actualPort, os.Getpid())
+
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
-	fmt.Printf("Server Run At Port: %d  PID:%d\n", actualPort, os.Getpid())
 }

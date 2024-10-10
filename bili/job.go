@@ -32,6 +32,12 @@ var (
 	once sync.Once
 )
 
+type Media struct {
+	url           string
+	filepath      string
+	contentLength int64
+}
+
 func NewJobManager() *JobManager {
 	once.Do(func() {
 		jm = &JobManager{
@@ -44,21 +50,43 @@ func NewJobManager() *JobManager {
 
 func (tq *JobManager) AddJob(job *Job) error {
 	tq.jobs[job.task.Id] = job
-
 	return nil
 }
 
 type Job struct {
 	stopChan      chan struct{}
 	stream        pb.DownloadService_DownloadServer
+	ffmpeg        string
 	contentLength int64
-	vTmp          string
-	aTmp          string
+	video         *Media
+	audio         *Media
+	file          *os.File
 	client        *client.Client
 	task          *pb.Task
 }
 
-func NewJob(stream pb.DownloadService_DownloadServer, client *client.Client, task *pb.Task, tmpDir string) *Job {
+func NewJob(stream pb.DownloadService_DownloadServer, client *client.Client, task *pb.Task, tmpDir, ffmpeg string) (*Job, error) {
+
+	var v *pb.Format
+	var a *pb.Format
+
+	for _, seg := range task.Segments {
+		if seg.MimeType == "video" {
+			for _, fm := range seg.Formats {
+				if fm.Selected {
+					v = fm
+				}
+			}
+		}
+
+		if seg.MimeType == "audio" {
+			for _, fm := range seg.Formats {
+				if fm.Selected {
+					a = fm
+				}
+			}
+		}
+	}
 
 	workDir := filepath.Dir(task.Filepath)
 	downloadDir := filepath.Join(tmpDir, "downloading")
@@ -69,15 +97,22 @@ func NewJob(stream pb.DownloadService_DownloadServer, client *client.Client, tas
 	targetPath := filepath.Join(workDir, pureTitle+".mp4")
 	task.Filepath = targetPath
 
+	file, err := os.Create(targetPath)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Job{
 		stopChan:      make(chan struct{}),
 		stream:        stream,
+		ffmpeg:        ffmpeg,
 		contentLength: 0,
-		vTmp:          vPath,
-		aTmp:          aPath,
+		video:         &Media{filepath: vPath, url: v.Url, contentLength: v.Size},
+		audio:         &Media{filepath: aPath, url: a.Url, contentLength: a.Size},
+		file:          file,
 		client:        client,
 		task:          task,
-	}
+	}, nil
 }
 
 func autoSetBatchSize(contentLength int64) int64 {
@@ -89,14 +124,14 @@ func autoSetBatchSize(contentLength int64) int64 {
 	return batchSize
 }
 
-func download(j *Job) error {
-	batchSize := autoSetBatchSize(j.contentLength)
-	chunkSize := j.contentLength / batchSize
-	if chunkSize*batchSize < j.contentLength {
+func download(j *Job, m Media) error {
+	batchSize := autoSetBatchSize(m.contentLength)
+	chunkSize := m.contentLength / batchSize
+	if chunkSize*batchSize < m.contentLength {
 		chunkSize += 1
 	}
 
-	out, err := os.Create(j.task.Filepath)
+	out, err := os.Create(m.filepath)
 	if err != nil {
 		return err
 	}
@@ -127,7 +162,6 @@ func download(j *Job) error {
 				return
 
 			}
-
 			notify.OnUpdate(progressMsg)
 		}
 	}()
@@ -150,17 +184,17 @@ func download(j *Job) error {
 	return nil
 }
 
-func (t *Job) downloadChunk(chunkStart, chunkEnd int64, totalBytesRead *atomic.Int64) error {
-	req := t.client.HTTPClient.R().
+func (j *Job) downloadChunk(chunkStart, chunkEnd int64, totalBytesRead *atomic.Int64) error {
+	req := j.client.HTTPClient.R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Range", fmt.Sprintf("bytes=%d-%d", chunkStart, chunkEnd)).
 		SetHeader("Referer", "https://www.bilibili.com/").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
-			Value: t.client.SESSDATA,
+			Value: j.client.SESSDATA,
 		}).SetDoNotParseResponse(true)
 
-	resp, err := req.Get(t.task.Url)
+	resp, err := req.Get(j.task.Url)
 	if err != nil {
 		log.Println("请求失败:", err)
 		return err
@@ -171,14 +205,14 @@ func (t *Job) downloadChunk(chunkStart, chunkEnd int64, totalBytesRead *atomic.I
 
 	for {
 		select {
-		case <-t.stopChan:
+		case <-j.stopChan:
 			fmt.Println("Context canceled")
 			return fmt.Errorf("download stopped for chunk %d-%d", chunkStart, chunkEnd)
 
 		default:
 			n, err := io.ReadFull(resp.RawBody(), buffer)
 			if n > 0 {
-				_, writeErr := out.WriteAt(buffer[:n], chunkStart)
+				_, writeErr := j.file.WriteAt(buffer[:n], chunkStart)
 				if writeErr != nil {
 					log.Printf("写入文件失败：%v", writeErr)
 					return writeErr
