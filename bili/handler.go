@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/go-resty/resty/v2"
 	ffmpeg_go "github.com/u2takey/ffmpeg-go"
 )
 
@@ -49,7 +50,7 @@ func (bh *CoverDownloader) Handle(j *Job, jm *JobManager) error {
 	}
 
 	j.task.Cover = coverPath
-	return bh.next.Handle(j, jm)
+	return bh.BaseHandler.Handle(j, jm)
 }
 
 // 需要在下载前执行
@@ -62,7 +63,7 @@ func (bh *JobRegister) Handle(j *Job, jm *JobManager) error {
 	if err != nil {
 		return err
 	}
-	return bh.next.Handle(j, jm)
+	return bh.BaseHandler.Handle(j, jm)
 }
 
 type VideoDownloader struct {
@@ -71,13 +72,13 @@ type VideoDownloader struct {
 
 func (bh *VideoDownloader) Handle(j *Job, jm *JobManager) error {
 
-	req := j.client.HTTPClient.R().
+	req := resty.New().R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Referer", "https://www.bilibili.com/").
 		SetHeader("Range", "bytes=0-").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
-			Value: j.client.SESSDATA,
+			Value: j.sessdata,
 		}).SetDoNotParseResponse(true)
 
 	resp, err := req.Get(j.video.url)
@@ -90,13 +91,12 @@ func (bh *VideoDownloader) Handle(j *Job, jm *JobManager) error {
 		return fmt.Errorf("下载视频失败2, err: %s", err.Error())
 	}
 
-	print("是否相等", contentLength, j.video.contentLength)
-
-	err = download(j, *j.video)
+	j.video.contentLength = contentLength
+	err = download(j, j.video)
 	if err != nil {
 		return fmt.Errorf("下载视频失败3, err: %s", err.Error())
 	}
-	return bh.next.Handle(j, jm)
+	return bh.BaseHandler.Handle(j, jm)
 }
 
 type AudioDownloader struct {
@@ -104,13 +104,13 @@ type AudioDownloader struct {
 }
 
 func (bh *AudioDownloader) Handle(j *Job, jm *JobManager) error {
-	req := j.client.HTTPClient.R().
+	req := resty.New().R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Referer", "https://www.bilibili.com/").
 		SetHeader("Range", "bytes=0-").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
-			Value: j.client.SESSDATA,
+			Value: j.sessdata,
 		}).SetDoNotParseResponse(true)
 
 	resp, err := req.Get(j.audio.url)
@@ -123,20 +123,20 @@ func (bh *AudioDownloader) Handle(j *Job, jm *JobManager) error {
 		return fmt.Errorf("下载视音频失败2, err: %s", err.Error())
 	}
 
-	print("是否相等", contentLength, j.audio.contentLength)
+	j.audio.contentLength = contentLength
 
-	err = download(j, *j.audio)
+	err = download(j, j.audio)
 	if err != nil {
 		return fmt.Errorf("下载音频失败3, err: %s", err.Error())
 	}
-	return bh.next.Handle(j, jm)
+	return bh.BaseHandler.Handle(j, jm)
 }
 
 type Combiner struct {
 	BaseHandler
 }
 
-func (bh *Combiner) Handle(j *Job) error {
+func (bh *Combiner) Handle(j *Job, jm *JobManager) error {
 	input := []*ffmpeg_go.Stream{ffmpeg_go.Input(j.video.filepath), ffmpeg_go.Input(j.audio.filepath)}
 	out := ffmpeg_go.OutputContext(context.Background(), input, j.task.Filepath, ffmpeg_go.KwArgs{"c:v": "copy", "c:a": "aac"})
 
@@ -156,7 +156,7 @@ func (bh *Combiner) Handle(j *Job) error {
 	if err != nil {
 		return fmt.Errorf("合并失败, err: %s", err.Error())
 	}
-	return bh.next.Handle(j, jm)
+	return bh.BaseHandler.Handle(j, jm)
 }
 
 func createHandlerChain(handlers ...Handler) Handler {

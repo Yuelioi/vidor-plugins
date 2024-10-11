@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Yuelioi/bilibili/pkg/client"
+	"github.com/go-resty/resty/v2"
 )
 
 const (
@@ -33,9 +33,12 @@ var (
 )
 
 type Media struct {
-	url           string
-	filepath      string
-	contentLength int64
+	mediaType      string
+	url            string
+	filepath       string
+	contentLength  int64
+	file           *os.File
+	totalBytesRead *atomic.Int64
 }
 
 func NewJobManager() *JobManager {
@@ -54,21 +57,19 @@ func (tq *JobManager) AddJob(job *Job) error {
 }
 
 type Job struct {
-	stopChan      chan struct{}
-	stream        pb.DownloadService_DownloadServer
-	ffmpeg        string
-	contentLength int64
-	video         *Media
-	audio         *Media
-	file          *os.File
-	client        *client.Client
-	task          *pb.Task
+	stopChan chan struct{}
+	stream   pb.DownloadService_DownloadServer
+	ffmpeg   string
+	video    *Media
+	audio    *Media
+	sessdata string
+	task     *pb.Task
 }
 
-func NewJob(stream pb.DownloadService_DownloadServer, client *client.Client, task *pb.Task, tmpDir, ffmpeg string) (*Job, error) {
+func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.Task, tmpDir, ffmpeg string) (*Job, error) {
 
-	var v *pb.Format
-	var a *pb.Format
+	v := &pb.Format{}
+	a := &pb.Format{}
 
 	for _, seg := range task.Segments {
 		if seg.MimeType == "video" {
@@ -97,21 +98,24 @@ func NewJob(stream pb.DownloadService_DownloadServer, client *client.Client, tas
 	targetPath := filepath.Join(workDir, pureTitle+".mp4")
 	task.Filepath = targetPath
 
-	file, err := os.Create(targetPath)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Job{
-		stopChan:      make(chan struct{}),
-		stream:        stream,
-		ffmpeg:        ffmpeg,
-		contentLength: 0,
-		video:         &Media{filepath: vPath, url: v.Url, contentLength: v.Size},
-		audio:         &Media{filepath: aPath, url: a.Url, contentLength: a.Size},
-		file:          file,
-		client:        client,
-		task:          task,
+		stopChan: make(chan struct{}),
+		stream:   stream,
+		ffmpeg:   ffmpeg,
+		video: &Media{
+			mediaType:      "视频",
+			url:            v.Url,
+			filepath:       vPath,
+			totalBytesRead: &atomic.Int64{},
+		},
+		audio: &Media{
+			mediaType:      "音频",
+			url:            a.Url,
+			filepath:       aPath,
+			totalBytesRead: &atomic.Int64{},
+		},
+		sessdata: sessdata,
+		task:     task,
 	}, nil
 }
 
@@ -124,44 +128,43 @@ func autoSetBatchSize(contentLength int64) int64 {
 	return batchSize
 }
 
-func download(j *Job, m Media) error {
+func download(j *Job, m *Media) error {
 	batchSize := autoSetBatchSize(m.contentLength)
 	chunkSize := m.contentLength / batchSize
 	if chunkSize*batchSize < m.contentLength {
 		chunkSize += 1
 	}
 
-	out, err := os.Create(m.filepath)
+	file, err := os.Create(m.filepath)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	m.file = file
+	defer m.file.Close()
 
 	var wg sync.WaitGroup
-	var totalBytesRead atomic.Int64
 
 	ticker := time.NewTicker(time.Duration(timeInterval) * time.Millisecond)
 	notify := NewDownloadNotification(j.stream)
 
+	defer ticker.Stop()
+
 	go func() {
-		defer ticker.Stop()
 		var previousBytesRead int64
 
 		for range ticker.C {
-			currentBytesRead := totalBytesRead.Load()
+			currentBytesRead := m.totalBytesRead.Load()
 			bytesRead := currentBytesRead - previousBytesRead
 			previousBytesRead = currentBytesRead
 
 			progressMsg := &pb.Task{
-				Id:    j.task.Id,
-				Cover: "bytes",
-				Speed: bytesRead,
+				Status:  fmt.Sprintf("下载%s中", m.mediaType),
+				Cover:   j.task.Cover,
+				Speed:   bytesRead * 1000 / timeInterval,
+				Percent: (currentBytesRead * 100 / m.contentLength),
 			}
 
-			if err := j.stream.Send(progressMsg); err != nil {
-				return
-
-			}
+			fmt.Printf("progressMsg: %v\n", progressMsg)
 			notify.OnUpdate(progressMsg)
 		}
 	}()
@@ -170,31 +173,36 @@ func download(j *Job, m Media) error {
 		start := i * chunkSize
 		end := start + chunkSize - 1
 		if i == batchSize-1 {
-			end = j.contentLength - 1
+			end = m.contentLength - 1
 		}
 
 		wg.Add(1)
 		go func(chunkStart, chunkEnd int64) {
 			defer wg.Done()
-			j.downloadChunk(chunkStart, chunkEnd, &totalBytesRead)
+			if err := j.downloadChunk(chunkStart, chunkEnd, m); err != nil {
+				return
+			}
 		}(start, end)
 	}
 	wg.Wait()
 
+	fmt.Printf("%s下载完毕\n", m.mediaType)
+
 	return nil
 }
 
-func (j *Job) downloadChunk(chunkStart, chunkEnd int64, totalBytesRead *atomic.Int64) error {
-	req := j.client.HTTPClient.R().
+func (j *Job) downloadChunk(chunkStart, chunkEnd int64, m *Media) error {
+
+	req := resty.New().R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Range", fmt.Sprintf("bytes=%d-%d", chunkStart, chunkEnd)).
 		SetHeader("Referer", "https://www.bilibili.com/").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
-			Value: j.client.SESSDATA,
+			Value: j.sessdata,
 		}).SetDoNotParseResponse(true)
 
-	resp, err := req.Get(j.task.Url)
+	resp, err := req.Get(m.url)
 	if err != nil {
 		log.Println("请求失败:", err)
 		return err
@@ -212,13 +220,13 @@ func (j *Job) downloadChunk(chunkStart, chunkEnd int64, totalBytesRead *atomic.I
 		default:
 			n, err := io.ReadFull(resp.RawBody(), buffer)
 			if n > 0 {
-				_, writeErr := j.file.WriteAt(buffer[:n], chunkStart)
+				_, writeErr := m.file.WriteAt(buffer[:n], chunkStart)
 				if writeErr != nil {
 					log.Printf("写入文件失败：%v", writeErr)
 					return writeErr
 				}
 				chunkStart += int64(n)
-				totalBytesRead.Add(int64(n))
+				m.totalBytesRead.Add(int64(n))
 			}
 
 			if err != nil {

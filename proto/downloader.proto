@@ -36,8 +36,7 @@ message InfoRequest {
 }
 
 message TasksRequest {
-  string id = 1;
-  repeated Task tasks = 2;
+  repeated Task tasks = 1; // 任务
 }
 
 message TaskRequest {
@@ -47,23 +46,25 @@ message TaskRequest {
 
 // ---------------------------- Responses ----------------------------
 
+// 🌞 宿主提供
+// 🌙 插件提供
+
 // 主任务信息
 message InfoResponse {
   string title = 1;          // 系列标题
   string cover = 2;          // 封面
   string author = 3;         // 作者
   string downloader_dir = 4; // 工作路径
-  bool need_parse = 5;       // 是否需要解析
+  bool need_parse = 5;       // 是否需要解析(🌙)
   repeated Task tasks = 6;   // 任务列表
 }
 
 message TasksResponse {
-  string id = 1;           // 暂时没用
   repeated Task tasks = 2; // 任务列表
 }
 
 message TaskResponse {
-  string id = 1;
+  string id = 1; // 🌙
   string state = 2;
 }
 
@@ -72,14 +73,14 @@ message TaskResponse {
 // 任务
 // 任务可能包含视频片段, 音频片段, 图片资源等等
 message Task {
-  string id = 1;         // ID
+  string id = 1;         // ID 🌞
   string url = 2;        // 链接
   string session_id = 3; // 会话ID
   string title = 4;      // 标题
   string cover = 5;      // 封面
-  string filepath = 6;   // 工作路径
-  bool selected = 7;     // 是否选择
-  string magic_name = 8; // 魔法名称
+  string filepath = 6;   // 工作路径 🌞&🌙
+  bool selected = 7;     // 是否选择 🌞
+  string magic_name = 8; // 魔法名称 🌞
   int64 size = 9;        // 大小 (btye)
   int64 percent = 10;    // 完成百分比
   int64 state = 11;      // 任务状态 (1:下载中 2:队列中 3:已完成)
@@ -93,20 +94,18 @@ message Task {
 // 具体的某一个资源, 比如视频/音频
 // 该资源可能有很多备选项
 message Segment {
-  string id = 1;               // ID
-  string mime_type = 2;        // 类型
-  bool selected = 3;           // 是否选择
-  repeated Format formats = 4; // 格式组
+  string mime_type = 1;        // 类型
+  bool selected = 2;           // 是否选择
+  repeated Format formats = 3; // 格式组
 }
 
 // 资源具体条目
 message Format {
-  string id = 1;        // ID
-  int64 fid = 2;        // 格式ID
-  string mime_type = 3; // 类型
-  string label = 4;     // 媒体标签 (e.g., "720p").
-  string code = 5;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
-  string url = 6;       // URL for downloading this format.
-  int64 size = 7;
-  bool selected = 8;
+  int64 id = 1;         // 格式ID
+  string mime_type = 2; // 类型
+  string label = 3;     // 媒体标签 (e.g., "720p").
+  string code = 4;      //  (e.g., "mp4/mov","flac/mp3","png/jpg").
+  string url = 5;       // URL for downloading this format.
+  int64 size = 6;       // 大小 (btye)
+  bool selected = 7;    // 是否选择
 }
