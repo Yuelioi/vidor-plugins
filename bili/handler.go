@@ -92,7 +92,9 @@ func (bh *VideoDownloader) Handle(j *Job, jm *JobManager) error {
 	}
 
 	j.video.contentLength = contentLength
-	err = download(j, j.video)
+
+	go j.monitor(j.video)
+	err = j.download(j.video)
 	if err != nil {
 		return fmt.Errorf("下载视频失败3, err: %s", err.Error())
 	}
@@ -125,7 +127,8 @@ func (bh *AudioDownloader) Handle(j *Job, jm *JobManager) error {
 
 	j.audio.contentLength = contentLength
 
-	err = download(j, j.audio)
+	go j.monitor(j.audio)
+	err = j.download(j.audio)
 	if err != nil {
 		return fmt.Errorf("下载音频失败3, err: %s", err.Error())
 	}

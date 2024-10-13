@@ -33,12 +33,13 @@ var (
 )
 
 type Media struct {
-	mediaType      string
-	url            string
-	filepath       string
-	contentLength  int64
-	file           *os.File
-	totalBytesRead *atomic.Int64
+	mediaType      string        // 媒体类型  视频/音频
+	url            string        // 链接
+	filepath       string        // 临时储存路径
+	contentLength  int64         // 长度(bytes)
+	file           *os.File      // 文件
+	totalBytesRead *atomic.Int64 // 已读
+	finishChan     chan struct{} // 完成通道
 }
 
 func NewJobManager() *JobManager {
@@ -106,13 +107,17 @@ func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.
 			mediaType:      "视频",
 			url:            v.Url,
 			filepath:       vPath,
+			file:           &os.File{},
 			totalBytesRead: &atomic.Int64{},
+			finishChan:     make(chan struct{}),
 		},
 		audio: &Media{
 			mediaType:      "音频",
 			url:            a.Url,
 			filepath:       aPath,
+			file:           &os.File{},
 			totalBytesRead: &atomic.Int64{},
+			finishChan:     make(chan struct{}),
 		},
 		sessdata: sessdata,
 		task:     task,
@@ -128,7 +133,39 @@ func autoSetBatchSize(contentLength int64) int64 {
 	return batchSize
 }
 
-func download(j *Job, m *Media) error {
+func (j *Job) monitor(m *Media) {
+	ticker := time.NewTicker(time.Duration(timeInterval) * time.Millisecond)
+	notify := NewDownloadNotification(j.stream)
+
+	var previousBytesRead int64
+
+	for {
+
+		select {
+
+		case <-ticker.C:
+			currentBytesRead := m.totalBytesRead.Load()
+			bytesRead := currentBytesRead - previousBytesRead
+			previousBytesRead = currentBytesRead
+
+			progressMsg := &pb.Task{
+				Status:  fmt.Sprintf("下载%s中", m.mediaType),
+				Cover:   j.task.Cover,
+				Speed:   bytesRead * 1000 / timeInterval,
+				Percent: (currentBytesRead * 100 / m.contentLength),
+			}
+
+			fmt.Printf("progressMsg: %v\n", progressMsg)
+			notify.OnUpdate(progressMsg)
+			// 如果没关闭
+		case <-j.stopChan:
+			ticker.Stop()
+		}
+	}
+
+}
+
+func (j *Job) download(m *Media) error {
 	batchSize := autoSetBatchSize(m.contentLength)
 	chunkSize := m.contentLength / batchSize
 	if chunkSize*batchSize < m.contentLength {
@@ -144,31 +181,6 @@ func download(j *Job, m *Media) error {
 
 	var wg sync.WaitGroup
 
-	ticker := time.NewTicker(time.Duration(timeInterval) * time.Millisecond)
-	notify := NewDownloadNotification(j.stream)
-
-	defer ticker.Stop()
-
-	go func() {
-		var previousBytesRead int64
-
-		for range ticker.C {
-			currentBytesRead := m.totalBytesRead.Load()
-			bytesRead := currentBytesRead - previousBytesRead
-			previousBytesRead = currentBytesRead
-
-			progressMsg := &pb.Task{
-				Status:  fmt.Sprintf("下载%s中", m.mediaType),
-				Cover:   j.task.Cover,
-				Speed:   bytesRead * 1000 / timeInterval,
-				Percent: (currentBytesRead * 100 / m.contentLength),
-			}
-
-			fmt.Printf("progressMsg: %v\n", progressMsg)
-			notify.OnUpdate(progressMsg)
-		}
-	}()
-
 	for i := int64(0); i < batchSize; i++ {
 		start := i * chunkSize
 		end := start + chunkSize - 1
@@ -179,6 +191,7 @@ func download(j *Job, m *Media) error {
 		wg.Add(1)
 		go func(chunkStart, chunkEnd int64) {
 			defer wg.Done()
+			defer close(m.finishChan)
 			if err := j.downloadChunk(chunkStart, chunkEnd, m); err != nil {
 				return
 			}
