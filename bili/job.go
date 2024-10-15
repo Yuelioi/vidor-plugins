@@ -45,7 +45,6 @@ type Media struct {
 func NewJobManager() *JobManager {
 	once.Do(func() {
 		jm = &JobManager{
-			mu:   sync.Mutex{},
 			jobs: make(map[string]*Job, 0),
 		}
 	})
