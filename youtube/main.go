@@ -60,11 +60,9 @@ func (s *server) Parse(ctx context.Context, pr *pb.TasksRequest) (*pb.TasksRespo
 	return s.client.Parse(pr)
 }
 
-func (s *server) Download(dr *pb.TasksRequest, stream pb.DownloadService_DownloadServer) error {
+func (s *server) Download(dr *pb.TaskRequest, stream pb.DownloadService_DownloadServer) error {
 
-	for _, task := range dr.Tasks {
-		s.client.Download(task, stream)
-	}
+	s.client.Download(dr.Task, stream)
 
 	return nil
 

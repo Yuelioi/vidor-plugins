@@ -138,8 +138,6 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 
 		for _, format := range video.Formats {
 			fm := &pb.Format{
-				Id:       uuid.New().String(),
-				Fid:      int64(format.ItagNo),
 				MimeType: format.MimeType,
 				Label:    format.QualityLabel,
 				Url:      format.URL,
@@ -161,10 +159,12 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 	return resp, nil
 }
 
-func (c *Client) Download(segInfo *pb.Task, seg pb.DownloadService_DownloadServer) error {
+func (c *Client) Download(task *pb.Task, seg pb.DownloadService_DownloadServer) error {
 
 	stopChan := make(chan struct{})
-	c.stopChannels.Store(segInfo.Id, stopChan)
+	c.stopChannels.Store(task.Id, stopChan)
+
+	c.YTBClient.GetVideo(task.Url)
 
 	return nil
 }
