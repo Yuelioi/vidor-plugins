@@ -59,10 +59,7 @@ type JobRegister struct {
 }
 
 func (bh *JobRegister) Handle(j *Job, jm *JobManager) error {
-	err := jm.AddJob(j)
-	if err != nil {
-		return err
-	}
+	jm.AddJob(j)
 	return bh.BaseHandler.Handle(j, jm)
 }
 
@@ -71,7 +68,6 @@ type VideoDownloader struct {
 }
 
 func (bh *VideoDownloader) Handle(j *Job, jm *JobManager) error {
-
 	req := resty.New().R().
 		SetHeader("Accept-Ranges", "bytes").
 		SetHeader("Referer", "https://www.bilibili.com/").

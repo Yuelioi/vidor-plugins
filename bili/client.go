@@ -155,10 +155,10 @@ func (c *Client) Parse(pr *pb.TasksRequest) (*pb.TasksResponse, error) {
 	return resp, nil
 }
 
-func (c *Client) Download(task *pb.Task, tmpDir, ffmpeg string, stream pb.DownloadService_DownloadServer, tq *JobManager) error {
+func (c *Client) Download(task *pb.Task, config *Config, stream pb.DownloadService_DownloadServer, tq *JobManager) error {
 	start := time.Now()
 
-	downloadDir := filepath.Join(tmpDir, "downloading")
+	downloadDir := filepath.Join(config.tmpDir, "downloading")
 
 	if _, err := os.Stat(downloadDir); os.IsNotExist(err) {
 		err := os.MkdirAll(downloadDir, os.ModePerm)
@@ -171,7 +171,7 @@ func (c *Client) Download(task *pb.Task, tmpDir, ffmpeg string, stream pb.Downlo
 		return nil
 	}
 
-	job, err := NewJob(stream, c.BpiService.Client.SESSDATA, task, tmpDir, ffmpeg)
+	job, err := NewJob(stream, c.BpiService.Client.SESSDATA, task, config)
 	if err != nil {
 		return err
 	}

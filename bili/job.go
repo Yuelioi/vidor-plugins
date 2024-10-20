@@ -22,24 +22,22 @@ const (
 	timeInterval = 1333            // 任务更新周期
 )
 
-type JobManager struct {
-	mu   sync.Mutex
-	jobs map[string]*Job
-}
-
 var (
 	jm   *JobManager
 	once sync.Once
 )
 
+type JobManager struct {
+	jobs map[string]*Job
+}
+
 type Media struct {
 	mediaType      string        // 媒体类型  视频/音频
-	url            string        // 链接
+	url            string        // 下载链接
 	filepath       string        // 临时储存路径
 	contentLength  int64         // 长度(bytes)
 	file           *os.File      // 文件
 	totalBytesRead *atomic.Int64 // 已读
-	finishChan     chan struct{} // 完成通道
 }
 
 func NewJobManager() *JobManager {
@@ -51,13 +49,15 @@ func NewJobManager() *JobManager {
 	return jm
 }
 
-func (tq *JobManager) AddJob(job *Job) error {
-	tq.jobs[job.task.Id] = job
-	return nil
+func (jm *JobManager) AddJob(job *Job) {
+	jm.jobs[job.task.Id] = job
 }
 
+// 一整个下载任务
 type Job struct {
-	stopChan chan struct{}
+	stopChan   chan struct{} //  停止通道
+	finishChan chan struct{} // 完成通道
+
 	stream   pb.DownloadService_DownloadServer
 	ffmpeg   string
 	video    *Media
@@ -66,8 +66,7 @@ type Job struct {
 	task     *pb.Task
 }
 
-func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.Task, tmpDir, ffmpeg string) (*Job, error) {
-
+func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.Task, c *Config) (*Job, error) {
 	v := &pb.Format{}
 	a := &pb.Format{}
 
@@ -90,7 +89,7 @@ func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.
 	}
 
 	workDir := filepath.Dir(task.Filepath)
-	downloadDir := filepath.Join(tmpDir, "downloading")
+	downloadDir := filepath.Join(c.tmpDir, "downloading")
 
 	pureTitle := sanitizeFileName(task.Title)
 	vPath := filepath.Join(downloadDir, pureTitle+".video.tmp.mp4")
@@ -99,16 +98,16 @@ func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.
 	task.Filepath = targetPath
 
 	return &Job{
-		stopChan: make(chan struct{}),
-		stream:   stream,
-		ffmpeg:   ffmpeg,
+		stopChan:   make(chan struct{}),
+		finishChan: make(chan struct{}),
+		stream:     stream,
+		ffmpeg:     c.ffmpeg,
 		video: &Media{
 			mediaType:      "视频",
 			url:            v.Url,
 			filepath:       vPath,
 			file:           &os.File{},
 			totalBytesRead: &atomic.Int64{},
-			finishChan:     make(chan struct{}),
 		},
 		audio: &Media{
 			mediaType:      "音频",
@@ -116,7 +115,6 @@ func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.
 			filepath:       aPath,
 			file:           &os.File{},
 			totalBytesRead: &atomic.Int64{},
-			finishChan:     make(chan struct{}),
 		},
 		sessdata: sessdata,
 		task:     task,
@@ -132,6 +130,7 @@ func autoSetBatchSize(contentLength int64) int64 {
 	return batchSize
 }
 
+// 监控任务进度
 func (j *Job) monitor(m *Media) {
 	ticker := time.NewTicker(time.Duration(timeInterval) * time.Millisecond)
 	notify := NewDownloadNotification(j.stream)
@@ -141,7 +140,6 @@ func (j *Job) monitor(m *Media) {
 	for {
 
 		select {
-
 		case <-ticker.C:
 			currentBytesRead := m.totalBytesRead.Load()
 			bytesRead := currentBytesRead - previousBytesRead
@@ -158,6 +156,8 @@ func (j *Job) monitor(m *Media) {
 			notify.OnUpdate(progressMsg)
 			// 如果没关闭
 		case <-j.stopChan:
+			ticker.Stop()
+		case <-j.finishChan:
 			ticker.Stop()
 		}
 	}
@@ -190,15 +190,12 @@ func (j *Job) download(m *Media) error {
 		wg.Add(1)
 		go func(chunkStart, chunkEnd int64) {
 			defer wg.Done()
-			defer close(m.finishChan)
 			if err := j.downloadChunk(chunkStart, chunkEnd, m); err != nil {
 				return
 			}
 		}(start, end)
 	}
 	wg.Wait()
-
-	fmt.Printf("%s下载完毕\n", m.mediaType)
 
 	return nil
 }

@@ -30,7 +30,7 @@ func TestDownload(t *testing.T) {
 
 	task := newTask("output", "url string", "sessionId string", "cover string")
 	task.Segments = make([]*proto.Segment, 0)
-	job, err := NewJob(nil, sessdata, task, "tmpDir", "")
+	job, err := NewJob(nil, sessdata, task, nil)
 
 	job.video = &Media{
 		url:            "https://cn-sccd-ct-01-18.bilivideo.com/upgcxcode/99/88/196018899/196018899-1-30120.m4s?e=ig8euxZM2rNcNbdlhoNvNC8BqJIzNbfqXBvEqxTEto8BTrNvN0GvT90W5JZMkX_YN0MvXg8gNEV4NC8xNEV4N03eN0B5tZlqNxTEto8BTrNvNeZVuJ10Kj_g2UB02J0mN0B5tZlqNCNEto8BTrNvNC7MTX502C8f2jmMQJ6mqF2fka1mqx6gqj0eN0B599M=&uipk=5&nbs=1&deadline=1728637696&gen=playurlv2&os=bcache&oi=3728857225&trid=0000e5f24163e173435b901f1cee1f5200d0u&mid=4279370&platform=pc&og=hw&upsig=7424251f18ec4e677546dbd069b3fb10&uparams=e,uipk,nbs,deadline,gen,os,oi,trid,mid,platform,og&cdnid=62618&bvc=vod&nettype=0&orderid=0,3&buvid=DF94E3F4-25F3-70D5-57F0-DDDFB8604B8659351infoc&build=0&f=u_0_0&agrr=1&bw=1757868&logo=80000000",

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	empty "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -23,8 +25,7 @@ type server struct {
 	tq         *JobManager
 	client     *Client
 	grpcServer *grpc.Server
-	ffmpeg     string
-	tmpDir     string
+	config     *Config
 }
 
 // 初始化
@@ -36,8 +37,28 @@ func (s *server) Init(ctx context.Context, i *empty.Empty) (*empty.Empty, error)
 // 更新数据
 func (s *server) Update(ctx context.Context, i *empty.Empty) (*empty.Empty, error) {
 	fmt.Print("someone try to update\n")
-	err := s.LoadConfig(ctx)
-	return &empty.Empty{}, err
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		sessdata := md.Get("plugin.sessdata")
+		if len(sessdata) > 0 {
+			s.client.BpiService.Client.SESSDATA = sessdata[0]
+			fmt.Printf("sessdata: %v\n", sessdata[0])
+		}
+
+		ffmpeg := md.Get("system.ffmpeg")
+		if len(ffmpeg) > 0 {
+			fmt.Printf("ffmpeg: %v\n", ffmpeg[0])
+			s.config.ffmpeg = ffmpeg[0]
+		}
+
+		tmps := md.Get("system.tmpdirs")
+		if len(tmps) > 0 {
+			fmt.Printf("tmps: %v\n", tmps[0])
+			s.config.tmpDir = tmps[0]
+		}
+		return &empty.Empty{}, nil
+	}
+	return &empty.Empty{}, errors.New("主机未提供相应参数")
 }
 
 // 关闭
@@ -58,7 +79,7 @@ func (s *server) GetInfo(ctx context.Context, sr *pb.InfoRequest) (*pb.InfoRespo
 	}
 
 	suffix := filepath.Ext(ir.Cover)
-	tmpCoverPath := filepath.Join(s.tmpDir, "cover", timestamp()+suffix)
+	tmpCoverPath := filepath.Join(s.config.tmpDir, "cover", timestamp()+suffix)
 	err = downloadCover(ir.Cover, tmpCoverPath)
 	if err != nil {
 		return nil, err
@@ -73,7 +94,7 @@ func (s *server) Parse(ctx context.Context, pr *pb.TasksRequest) (*pb.TasksRespo
 }
 
 func (s *server) Download(tr *pb.TaskRequest, stream pb.DownloadService_DownloadServer) error {
-	return s.client.Download(tr.Task, s.tmpDir, s.ffmpeg, stream, s.tq)
+	return s.client.Download(tr.Task, s.config, stream, s.tq)
 }
 
 // TODO
@@ -112,8 +133,6 @@ func main() {
 		tq:         NewJobManager(),
 		client:     NewClient(),
 		grpcServer: grpcServer,
-		ffmpeg:     "",
-		tmpDir:     "",
 	}
 
 	pb.RegisterDownloadServiceServer(grpcServer, s)
