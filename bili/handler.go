@@ -74,7 +74,7 @@ func (bh *VideoDownloader) Handle(j *Job, jm *JobManager) error {
 		SetHeader("Range", "bytes=0-").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
-			Value: j.sessdata,
+			Value: j.config.sessdata,
 		}).SetDoNotParseResponse(true)
 
 	resp, err := req.Get(j.video.url)
@@ -108,7 +108,7 @@ func (bh *AudioDownloader) Handle(j *Job, jm *JobManager) error {
 		SetHeader("Range", "bytes=0-").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
-			Value: j.sessdata,
+			Value: j.config.sessdata,
 		}).SetDoNotParseResponse(true)
 
 	resp, err := req.Get(j.audio.url)
@@ -139,9 +139,9 @@ func (bh *Combiner) Handle(j *Job, jm *JobManager) error {
 	input := []*ffmpeg_go.Stream{ffmpeg_go.Input(j.video.filepath), ffmpeg_go.Input(j.audio.filepath)}
 	out := ffmpeg_go.OutputContext(context.Background(), input, j.task.Filepath, ffmpeg_go.KwArgs{"c:v": "copy", "c:a": "aac"})
 
-	_, err := os.Stat(j.ffmpeg)
+	_, err := os.Stat(j.config.ffmpeg)
 	if err == nil {
-		out = out.SetFfmpegPath(j.ffmpeg)
+		out = out.SetFfmpegPath(j.config.ffmpeg)
 	}
 
 	// err = out.OverWriteOutput().WithOutput().Run()

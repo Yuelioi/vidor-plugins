@@ -57,16 +57,15 @@ func (jm *JobManager) AddJob(job *Job) {
 type Job struct {
 	stopChan   chan struct{} //  停止通道
 	finishChan chan struct{} // 完成通道
+	config     *Config
 
-	stream   pb.DownloadService_DownloadServer
-	ffmpeg   string
-	video    *Media
-	audio    *Media
-	sessdata string
-	task     *pb.Task
+	stream pb.DownloadService_DownloadServer
+	video  *Media
+	audio  *Media
+	task   *pb.Task
 }
 
-func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.Task, c *Config) (*Job, error) {
+func NewJob(stream pb.DownloadService_DownloadServer, task *pb.Task, config *Config) (*Job, error) {
 	v := &pb.Format{}
 	a := &pb.Format{}
 
@@ -88,20 +87,19 @@ func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.
 		}
 	}
 
-	workDir := filepath.Dir(task.Filepath)
-	downloadDir := filepath.Join(c.tmpDir, "downloading")
+	downloadDir := filepath.Join(config.tmpDir, "downloading")
 
 	pureTitle := sanitizeFileName(task.Title)
 	vPath := filepath.Join(downloadDir, pureTitle+".video.tmp.mp4")
 	aPath := filepath.Join(downloadDir, pureTitle+".audio.tmp.mp3")
-	targetPath := filepath.Join(workDir, pureTitle+".mp4")
+	targetPath := filepath.Join(task.WorkDir, pureTitle+".mp4")
 	task.Filepath = targetPath
 
 	return &Job{
 		stopChan:   make(chan struct{}),
 		finishChan: make(chan struct{}),
 		stream:     stream,
-		ffmpeg:     c.ffmpeg,
+		config:     config,
 		video: &Media{
 			mediaType:      "视频",
 			url:            v.Url,
@@ -116,8 +114,7 @@ func NewJob(stream pb.DownloadService_DownloadServer, sessdata string, task *pb.
 			file:           &os.File{},
 			totalBytesRead: &atomic.Int64{},
 		},
-		sessdata: sessdata,
-		task:     task,
+		task: task,
 	}, nil
 }
 
@@ -208,7 +205,7 @@ func (j *Job) downloadChunk(chunkStart, chunkEnd int64, m *Media) error {
 		SetHeader("Referer", "https://www.bilibili.com/").
 		SetCookie(&http.Cookie{
 			Name:  "SESSDATA",
-			Value: j.sessdata,
+			Value: j.config.sessdata,
 		}).SetDoNotParseResponse(true)
 
 	resp, err := req.Get(m.url)

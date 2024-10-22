@@ -3,7 +3,6 @@ go 1.22.6
 use (
 	../bilibili
 	./bili
-	./client
 	./proto
 	./youtube
 	./demo

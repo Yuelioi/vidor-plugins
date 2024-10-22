@@ -7,7 +7,7 @@ type Config struct {
 	downloadVideo    bool
 	downloadAudio    bool
 	downloadSubtitle bool
-	download         bool
+	x                [][]int
 }
 
 func NewConfig() *Config {

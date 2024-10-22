@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	pb "proto"
 	"regexp"
 	"strconv"
 	"strings"
@@ -72,4 +73,24 @@ func downloadCover(url, filePath string) error {
 	}
 
 	return os.WriteFile(filePath, response.Body(), os.ModePerm)
+}
+
+func newTask(title, url, sessionId, cover string) *pb.Task {
+	task := &pb.Task{
+		Url:       url,
+		SessionId: sessionId,
+		Title:     title,
+		Cover:     cover,
+	}
+
+	for _, mimeType := range []string{"video", "audio"} {
+		seg := &pb.Segment{}
+		seg.MimeType = mimeType
+		seg.Formats = []*pb.Format{
+			{MimeType: mimeType, Label: "未解析", Code: "未解析"},
+		}
+		task.Segments = append(task.Segments, seg)
+
+	}
+	return task
 }
