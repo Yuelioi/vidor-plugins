@@ -17,6 +17,7 @@ import (
 	"net/url"
 
 	ffmpeg_go "github.com/u2takey/ffmpeg-go"
+	"golang.org/x/exp/rand"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/kkdai/youtube/v2"
@@ -39,8 +40,7 @@ func getProxyClient() (*http.Client, error) {
 	}
 
 	transport := &http.Transport{
-		Proxy: http.ProxyURL(proxyUrl), // 这里需要提供你的代理URL
-		// 可以根据需要调整其他参数
+		Proxy: http.ProxyURL(proxyUrl),
 	}
 
 	// 创建一个HTTP客户端，并将上面创建的Transport与之关联
@@ -69,9 +69,9 @@ func parse(url string) {
 		return
 	}
 
-	for _, f := range v.Formats {
-		fmt.Printf("f.MimeType: %v Quality %v QualityLabel %v\n", f.MimeType, f.Quality, f.QualityLabel)
-	}
+	// for _, f := range v.Formats {
+	// 	fmt.Printf("f.MimeType: %v Quality %v QualityLabel %v\n", f.MimeType, f.Quality, f.QualityLabel)
+	// }
 
 	videos := FilterFormats(v.Formats, "video")
 	audios := FilterFormats(v.Formats, "audio")
@@ -89,27 +89,20 @@ func parse(url string) {
 		mediaType:      "video",
 		url:            bv.URL,
 		filepath:       tmpV,
+		contentLength:  bv.ContentLength,
 		totalBytesRead: &atomic.Int64{},
 		finishChan:     make(chan struct{}),
 	}
+
+	getContentLength(mV)
 
 	mA := &Media{
 		mediaType:      "audio",
 		url:            ba.URL,
 		filepath:       tmpA,
+		contentLength:  ba.ContentLength,
 		totalBytesRead: &atomic.Int64{},
 		finishChan:     make(chan struct{}),
-	}
-
-	err = getContentLength(mV)
-	if err != nil {
-		fmt.Printf("err3: %v\n", err)
-		return
-	}
-	err = getContentLength(mA)
-	if err != nil {
-		fmt.Printf("err4: %v\n", err)
-		return
 	}
 
 	download(mV)
@@ -120,16 +113,7 @@ func parse(url string) {
 
 func main() {
 	videoLinks := []string{
-		"https://www.youtube.com/watch?v=vkOhsJpclxY",
-		"https://www.youtube.com/watch?v=SNIE80rJRiM",
-		"https://www.youtube.com/watch?v=jS_A1V_9OYI",
-		"https://www.youtube.com/watch?v=UbKqqjDy38E",
-		"https://www.youtube.com/watch?v=EaabtWuycmk",
-		"https://www.youtube.com/watch?v=Zscr1k_A36E",
-		"https://www.youtube.com/watch?v=Ttp3QbQFgtc",
-		"https://www.youtube.com/watch?v=sP5NpARVX0M",
-		"https://www.youtube.com/watch?v=fBKxZh5fejI",
-		"https://www.youtube.com/watch?v=DCfk7tc_KqE",
+		"https://www.youtube.com/watch?v=NxvmAwggmzQ",
 	}
 
 	for _, url := range videoLinks {
@@ -160,6 +144,7 @@ func CombineAV(ffmpegPath string, input_v, input_a, output_v string) (err error)
 
 const bufferSize = 512 * 1024
 
+// 先用原来的 没有再获取
 func getContentLength(m *Media) error {
 
 	httpClient, err := getProxyClient()
@@ -172,8 +157,17 @@ func getContentLength(m *Media) error {
 	client := resty.NewWithClient(httpClient)
 
 	req := client.R().
-		SetHeader("Accept-Ranges", "bytes").
-		SetHeader("Range", "bytes=0-").SetDoNotParseResponse(true)
+		// SetHeader("Accept-Ranges", "bytes").
+		SetHeader("User-Agent", "com.google.android.youtube/18.11.34 (Linux; U; Android 11) gzip").
+		SetHeader("Origin", "https://youtube.com").
+		SetHeader("Sec-Fetch-Mode", "navigate").
+		SetCookie(&http.Cookie{
+			Name:   "CONSENT",
+			Value:  "YES+cb.20210328-17-p0.en+FX+" + strconv.Itoa(rand.Intn(899)+100),
+			Path:   "/",
+			Domain: ".youtube.com",
+		}).
+		SetDoNotParseResponse(true)
 
 	resp, err := req.Get(m.url)
 	if err != nil {
@@ -195,6 +189,8 @@ func download(m *Media) error {
 	if chunkSize*batchSize < m.contentLength {
 		chunkSize += 1
 	}
+
+	print(m.contentLength)
 
 	file, err := os.Create(m.filepath)
 	if err != nil {
